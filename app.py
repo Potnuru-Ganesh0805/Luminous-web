@@ -2,6 +2,7 @@ import os
 import json
 import time
 import csv
+import threading
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -10,10 +11,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- Application Setup ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-super-secret-key' # Change this in production
+app.config['SECRET_KEY'] = 'your-super-secret-key'
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'signin' # Updated to 'signin'
+login_manager.login_view = 'signin'
 
 # --- Data File Paths ---
 USERS_FILE = 'users.json'
@@ -44,9 +45,12 @@ def connect_mqtt():
     except Exception as e:
         print(f"Error connecting to MQTT: {e}")
 
-# Call the connection function after the app has started
-# This is a good practice for production servers like Gunicorn
-# because it ensures the network is ready.
+def run_mqtt_thread():
+    # Use a separate thread for the MQTT loop to prevent blocking
+    mqtt_thread = threading.Thread(target=connect_mqtt)
+    mqtt_thread.daemon = True
+    mqtt_thread.start()
+
 
 # --- User Management ---
 class User(UserMixin):
@@ -132,7 +136,6 @@ def load_analytics_data():
                         'consumption': float(row['consumption'])
                     })
                 except (ValueError, TypeError):
-                    # Skip rows with invalid data
                     continue
     return data
 
@@ -324,6 +327,31 @@ def set_appliance_name():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/set-lock', methods=['POST'])
+@login_required
+def set_lock():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+        locked = data_from_request['locked']
+
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
+        if not appliance:
+            return jsonify({"status": "error", "message": "Appliance not found."}), 404
+        
+        appliance['locked'] = locked
+        save_user_data(user_data)
+
+        return jsonify({"status": "success", "message": "Lock state updated."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/get-rooms-and-appliances', methods=['GET'])
 @login_required
 def get_rooms_and_appliances():
@@ -373,12 +401,23 @@ def add_appliance():
 @login_required
 def get_analytics():
     data = load_analytics_data()
-    hourly_data, daily_data, monthly_data = {}, {}, {}
-    for entry in data:
-        date_hour = f"{entry['date']} {entry['hour']:02d}:00"
-        hourly_data[date_hour] = entry['consumption']
+    
+    # Calculate different time ranges for the chart data
+    now = datetime.now()
+    last_day = [entry for entry in data if datetime.strptime(entry['date'], '%Y-%m-%d') >= now - timedelta(days=1)]
+    last_month = [entry for entry in data if datetime.strptime(entry['date'], '%Y-%m-%d') >= now - timedelta(days=30)]
+    last_year = [entry for entry in data]
+
+    # Process data for different time views
+    hourly_data = {f"{entry['date']} {entry['hour']:02d}:00": entry['consumption'] for entry in last_day}
+    
+    daily_data = {}
+    for entry in last_month:
         daily_data.setdefault(entry['date'], 0)
         daily_data[entry['date']] += entry['consumption']
+    
+    monthly_data = {}
+    for entry in last_year:
         month = entry['date'][:7]
         monthly_data.setdefault(month, 0)
         monthly_data[month] += entry['consumption']
@@ -414,6 +453,6 @@ def set_user_settings():
 
 if __name__ == '__main__':
     generate_analytics_data()
-    connect_mqtt()
+    run_mqtt_thread()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
