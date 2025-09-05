@@ -3,6 +3,20 @@
 {% block title %}Control Panel{% endblock %}
 
 {% block content %}
+<style>
+    /*
+     * Custom ghost class for Sortable.js
+     * This class is applied to the element being dragged.
+     */
+    .sortable-ghost {
+        background-color: var(--bg-muted-light);
+        opacity: 0.5;
+    }
+    .dark .sortable-ghost {
+        background-color: var(--bg-muted-dark);
+        opacity: 0.5;
+    }
+</style>
 <div class="container mx-auto">
     <div class="text-center mb-8">
         <h1 class="text-4xl font-extrabold mb-2 text-primary-accent">Relay Control Panel</h1>
@@ -219,7 +233,7 @@
         }
     };
     
-
+    // Save new room order to the backend
     const renderRooms = (rooms) => {
         console.log('Rendering rooms:', rooms);
         const container = document.getElementById('room-container');
