@@ -1,50 +1,48 @@
 {
     "1": {
         "user_settings": {
-            "name": "Dummy User",
-            "email": "dummy@example.com",
-            "mobile": "123-456-7890",
+            "name": "testuser",
+            "email": "test@example.com",
+            "mobile": "1234567890",
             "channel": "email",
             "theme": "dark"
         },
         "rooms": [
             {
                 "id": "1",
-                "name": "Living Room",
+                "name": "Hall",
                 "appliances": [
                     {
                         "id": "1",
-                        "name": "Lamp",
+                        "name": "Main Light",
                         "state": false,
                         "locked": false,
-                        "timer": null
+                        "timer": null,
+                        "relay_number": 1
                     },
                     {
                         "id": "2",
-                        "name": "TV",
+                        "name": "Fan",
                         "state": false,
                         "locked": false,
-                        "timer": null
-                    }
-                ]
-            },
-            {
-                "id": "2",
-                "name": "Kitchen",
-                "appliances": [
-                    {
-                        "id": "1",
-                        "name": "Coffee Maker",
-                        "state": false,
-                        "locked": false,
-                        "timer": null
+                        "timer": null,
+                        "relay_number": 2
                     },
                     {
-                        "id": "2",
-                        "name": "Microwave",
+                        "id": "3",
+                        "name": "Night Lamp",
                         "state": false,
                         "locked": false,
-                        "timer": null
+                        "timer": null,
+                        "relay_number": 3
+                    },
+                    {
+                        "id": "4",
+                        "name": "A/C",
+                        "state": false,
+                        "locked": false,
+                        "timer": null,
+                        "relay_number": 4
                     }
                 ]
             }
