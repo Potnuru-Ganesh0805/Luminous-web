@@ -18,7 +18,7 @@ if (theme === 'system') {
 
 // Initial load: Apply the saved theme from local storage or default
 document.addEventListener('DOMContentLoaded', () => {
-const savedTheme = localStorage.getItem('theme') || 'dark';
+const savedTheme = localStorage.getItem('theme') || 'light';
 window.applyTheme(savedTheme);
 
 // Listen for system theme changes if 'system' is selected
