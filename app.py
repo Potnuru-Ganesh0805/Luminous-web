@@ -8,7 +8,6 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import paho.mqtt.client as mqtt
 from werkzeug.security import generate_password_hash, check_password_hash
-import requests
 
 # --- Application Setup ---
 app = Flask(__name__)
@@ -21,10 +20,6 @@ login_manager.login_view = 'signin'
 USERS_FILE = 'users.json'
 DATA_FILE = 'data.json'
 ANALYTICS_FILE = 'analytics_data.csv'
-
-# --- Gemini API Setup ---
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key="
-API_KEY = "" # Your API Key will be automatically provided by the Canvas environment
 
 # --- MQTT Setup ---
 MQTT_BROKER = "mqtt.eclipse.org"
@@ -247,6 +242,56 @@ def contact():
     user_data = get_user_data()
     theme = user_data['user_settings']['theme']
     return render_template('contact.html', theme=theme)
+
+# --- AI & LLM Endpoints ---
+def call_gemini_api(prompt):
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    try:
+        response = requests.post(GEMINI_API_URL + API_KEY, json=payload, headers=headers, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling Gemini API: {e}")
+        return "Sorry, I am unable to connect to the AI service right now. Please try again later."
+    except (KeyError, IndexError) as e:
+        print(f"Error parsing Gemini API response: {e}")
+        return "Sorry, I received an unexpected response from the AI service."
+
+@app.route('/api/ai/analyze', methods=['POST'])
+@login_required
+def ai_analyze_consumption():
+    data = request.json
+    consumption_data = json.dumps(data.get('consumption', {}))
+    
+    prompt = f"""
+    You are an AI-powered energy efficiency expert. Analyze the following energy consumption data (in kWh) and provide a concise, single-paragraph summary of the key findings. Offer 2-3 actionable tips for reducing consumption based on the data.
+
+    Energy Consumption Data (kWh per period):
+    {consumption_data}
+    """
+    
+    summary = call_gemini_api(prompt)
+    return jsonify({"analysis": summary}), 200
+
+@app.route('/api/ai/ask', methods=['POST'])
+@login_required
+def ai_ask():
+    data = request.json
+    user_query = data.get('query', '')
+    
+    prompt = f"""
+    You are a friendly and helpful smart home assistant. Answer the following user question in a clear, concise, and friendly manner.
+    User Question: {user_query}
+    """
+    
+    response_text = call_gemini_api(prompt)
+    return jsonify({"answer": response_text}), 200
 
 # --- Backend API Endpoints ---
 @app.route('/api/esp/check-in', methods=['GET'])
@@ -516,70 +561,163 @@ def add_appliance():
         return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-        
-@app.route('/api/get-analytics', methods=['GET'])
-@login_required
-def get_analytics():
-    try:
-        analytics_data = load_analytics_data()
-        
-        # Calculate stats
-        total_consumption = sum(row['consumption'] for row in analytics_data)
-        highest_usage = max(row['consumption'] for row in analytics_data) if analytics_data else 0
-        average_usage = total_consumption / len(analytics_data) if analytics_data else 0
-        
-        # Group by hour, day, and month
-        hourly_data = {}
-        daily_data = {}
-        monthly_data = {}
-        
-        for row in analytics_data:
-            hour = row['hour']
-            date = datetime.strptime(row['date'], '%Y-%m-%d')
-            day_str = date.strftime('%Y-%m-%d')
-            month_str = date.strftime('%Y-%m')
-            
-            hourly_data[hour] = hourly_data.get(hour, 0) + row['consumption']
-            daily_data[day_str] = daily_data.get(day_str, 0) + row['consumption']
-            monthly_data[month_str] = monthly_data.get(month_str, 0) + row['consumption']
-            
-        return jsonify({
-            "stats": {
-                "highest_usage": highest_usage,
-                "average_usage": average_usage,
-                "savings": (total_consumption * 0.1), # Placeholder for estimated savings
-            },
-            "hourly": hourly_data,
-            "daily": daily_data,
-            "monthly": monthly_data
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/get-user-settings', methods=['GET'])
+@app.route('/api/update-appliance-settings', methods=['POST'])
 @login_required
-def get_user_settings():
+def update_appliance_settings():
     try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+        new_name = data_from_request['name']
+        new_relay_number = data_from_request['relay_number']
+        new_room_id = data_from_request['new_room_id']
+        
         user_data = get_user_data()
-        return jsonify(user_data['user_settings']), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/set-user-settings', methods=['POST'])
-@login_required
-def set_user_settings():
-    try:
-        settings = request.json
-        user_data = get_user_data()
-        user_data['user_settings'] = settings
+        
+        original_room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not original_room:
+            return jsonify({"status": "error", "message": "Original room not found."}), 404
+        appliance = next((a for a in original_room['appliances'] if a['id'] == appliance_id), None)
+        if not appliance:
+            return jsonify({"status": "error", "message": "Appliance not found."}), 403
+        
+        if new_room_id and new_room_id != room_id:
+            target_room = next((r for r in user_data['rooms'] if r['id'] == new_room_id), None)
+            if not target_room:
+                return jsonify({"status": "error", "message": "Target room not found."}), 404
+            
+            original_room['appliances'].remove(appliance)
+            appliance['id'] = str(len(target_room['appliances']) + 1)
+            target_room['appliances'].append(appliance)
+        
+        appliance['name'] = new_name
+        appliance['relay_number'] = new_relay_number
         save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Settings saved."}), 200
+        
+        return jsonify({"status": "success", "message": "Appliance settings updated."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/set-timer', methods=['POST'])
+@login_required
+def set_timer():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+        duration_minutes = data_from_request['duration_minutes']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
+        if not appliance:
+            return jsonify({"status": "error", "message": "Appliance not found."}), 403
+        
+        if appliance.get('locked', False):
+            return jsonify({"status": "error", "message": "Appliance is locked."}), 403
+        
+        if duration_minutes > 0:
+            appliance['state'] = True
+            appliance['timer'] = time.time() + duration_minutes * 60
+            user_data['last_command'] = {
+                "room_id": room_id,
+                "appliance_id": appliance_id,
+                "state": True,
+                "relay_number": appliance['relay_number'],
+                "timestamp": int(time.time())
+            }
+            if mqtt_client:
+                mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:on")
+        else:
+            appliance['timer'] = None
 
-if __name__ == '__main__':
-    generate_analytics_data()
-    run_mqtt_thread()
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "message": "Timer set."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/api/save-room-order', methods=['POST'])
+@login_required
+def save_room_order():
+    try:
+        new_order_ids = request.json['order']
+        user_data = get_user_data()
+        room_map = {room['id']: room for room in user_data['rooms']}
+        user_data['rooms'] = [room_map[id] for id in new_order_ids]
+        save_user_data(user_data)
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/api/save-appliance-order', methods=['POST'])
+@login_required
+def save_appliance_order():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        new_order_ids = data_from_request['order']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        appliance_map = {appliance['id']: appliance for appliance in room['appliances']}
+        room['appliances'] = [appliance_map[id] for id in new_order_ids]
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/get-rooms-and-appliances', methods=['GET'])
+@login_required
+def get_rooms_and_appliances():
+    user_data = get_user_data()
+    return jsonify(user_data['rooms']), 200
+
+@app.route('/api/add-room', methods=['POST'])
+@login_required
+def add_room():
+    try:
+        room_name = request.json['name']
+        user_data = get_user_data()
+        new_room_id = str(len(user_data['rooms']) + 1)
+        user_data['rooms'].append({"id": new_room_id, "name": room_name, "appliances": []})
+        save_user_data(user_data)
+        return jsonify({"status": "success", "room_id": new_room_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/add-appliance', methods=['POST'])
+@login_required
+def add_appliance():
+    try:
+        room_id = request.json['room_id']
+        appliance_name = request.json['name']
+        relay_number = request.json['relay_number']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        new_appliance_id = str(len(room['appliances']) + 1)
+        room['appliances'].append({
+            "id": new_appliance_id,
+            "name": appliance_name,
+            "state": False,
+            "locked": False,
+            "timer": None,
+            "relay_number": int(relay_number)
+        })
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
