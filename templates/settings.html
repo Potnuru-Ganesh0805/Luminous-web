@@ -39,19 +39,12 @@
     <!-- Theme Settings Card -->
     <div data-slot="card" class="bg-card text-card-foreground rounded-xl border p-8 shadow-sm transition-all max-w-2xl mx-auto">
         <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200">Theme</h2>
-        <div class="flex items-center space-x-4">
-            <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="theme" value="light" class="radio-theme">
-                <span class="text-gray-700 dark:text-gray-300">Light</span>
-            </label>
-            <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="theme" value="dark" class="radio-theme">
-                <span class="text-gray-700 dark:text-gray-300">Dark</span>
-            </label>
-            <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="theme" value="system" class="radio-theme">
-                <span class="text-gray-700 dark:text-gray-300">System</span>
-            </label>
+        <div class="theme-dropdown relative">
+            <select id="theme-selector" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="system">System</option>
+            </select>
         </div>
     </div>
 </div>
@@ -69,11 +62,10 @@
             document.getElementById('mobile').value = settings.mobile;
             document.getElementById('channel').value = settings.channel;
             
-            // Set the theme radio button
-            const themeRadio = document.querySelector(`input[name="theme"][value="${settings.theme}"]`);
-            if (themeRadio) {
-                themeRadio.checked = true;
-            }
+            // Set the theme selector
+            document.getElementById('theme-selector').value = settings.theme;
+            window.applyTheme(settings.theme); // Apply theme on load
+            
         } catch (error) {
             console.error("Error fetching user settings:", error);
             showNotification('Failed to load user settings.', 'off');
@@ -87,7 +79,7 @@
             email: document.getElementById('email').value,
             mobile: document.getElementById('mobile').value,
             channel: document.getElementById('channel').value,
-            theme: document.querySelector('input[name="theme"]:checked').value
+            theme: document.getElementById('theme-selector').value
         };
 
         try {
@@ -109,13 +101,11 @@
         fetchUserSettings();
         document.getElementById('user-settings-form').addEventListener('submit', saveUserSettings);
         
-        // Add event listeners for theme radio buttons
-        document.querySelectorAll('input[name="theme"]').forEach(radio => {
-            radio.addEventListener('change', (event) => {
-                window.applyTheme(event.target.value);
-                // Also save the theme to the backend
-                saveUserSettings(new Event('submit'));
-            });
+        // Add event listener for the theme selector dropdown
+        document.getElementById('theme-selector').addEventListener('change', (event) => {
+            window.applyTheme(event.target.value);
+            // Also save the theme to the backend
+            saveUserSettings(new Event('submit'));
         });
     };
 </script>
