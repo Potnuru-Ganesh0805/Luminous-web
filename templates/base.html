@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" class="dark transition-colors duration-500">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumino'US' | {% block title %}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen font-sans">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-[100] flex items-center justify-center transition-opacity duration-700 opacity-100">
+        <div class="loader-circle"></div>
+    </div>
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="bg-gray-200 dark:bg-gray-800 w-full md:w-64 p-6 flex flex-col items-center shadow-lg md:h-screen md:sticky md:top-0">
+            <h1 class="text-3xl font-bold text-blue-600 mb-8">Lumino'US'</h1>
+            <nav class="flex flex-col space-y-4 w-full">
+                <a href="{{ url_for('home') }}" class="nav-link {% if request.path == url_for('home') %}active{% endif %}">
+                    <i class="fas fa-home mr-3"></i>Home
+                </a>
+                <a href="{{ url_for('control') }}" class="nav-link {% if request.path == url_for('control') %}active{% endif %}">
+                    <i class="fas fa-toggle-on mr-3"></i>Control Panel
+                </a>
+                <a href="{{ url_for('analytics') }}" class="nav-link {% if request.path == url_for('analytics') %}active{% endif %}">
+                    <i class="fas fa-chart-line mr-3"></i>Analytics
+                </a>
+                <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == url_for('settings') %}active{% endif %}">
+                    <i class="fas fa-cogs mr-3"></i>Settings
+                </a>
+                <a href="{{ url_for('contact') }}" class="nav-link {% if request.path == url_for('contact') %}active{% endif %}">
+                    <i class="fas fa-envelope mr-3"></i>Contact Us
+                </a>
+            </nav>
+            
+            <!-- User Profile and Logout in Sidebar -->
+            <div class="mt-auto w-full pt-6">
+                <div class="flex items-center space-x-3 text-gray-600 dark:text-gray-400 mb-4">
+                    <i class="fas fa-user-circle text-2xl"></i>
+                    <span id="user-name">Guest</span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="nav-link w-full text-center bg-red-500 hover:bg-red-600 text-white font-bold">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow p-8">
+            <div id="notification-area" class="fixed bottom-4 right-4 z-50"></div>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-200 dark:bg-gray-800 text-center py-4 text-sm text-gray-600 dark:text-gray-400">
+        <p>&copy; 2024 Lumino'US'. All rights reserved.</p>
+    </footer>
+
+    <!-- Shared JavaScript -->
+    <script src="{{ url_for('static', filename='themes.js') }}"></script>
+    <script>
+        const showNotification = (message, type) => {
+            const notificationArea = document.getElementById('notification-area');
+            const notification = document.createElement('div');
+            notification.className = `p-4 rounded-lg shadow-md text-white transition-opacity duration-300 ease-in-out mb-2 transform translate-y-full opacity-0 ${type === 'on' ? 'bg-green-600' : 'bg-red-600'}`;
+            notification.textContent = message;
+            notificationArea.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.remove('translate-y-full', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.classList.add('opacity-0');
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        };
+
+        const fetchUserName = async () => {
+            try {
+                const response = await fetch('/api/get-user-settings');
+                const data = await response.json();
+                if (data.name) {
+                    document.getElementById('user-name').textContent = data.name;
+                }
+            } catch (error) {
+                console.error("Failed to fetch user name:", error);
+            }
+        };
+
+        const hideLoadingScreen = () => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 700);
+            }
+        };
+
+        window.addEventListener('load', () => {
+            hideLoadingScreen();
+            fetchUserName();
+        });
+    </script>
+</body>
+</html>
