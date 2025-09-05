@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- Application Setup ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-super-secret-key'
+app.config['SECRET_KEY'] = 'your-super-secret-key' # Change this in production
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'signin'
@@ -408,16 +408,30 @@ def update_appliance_settings():
         appliance_id = data_from_request['appliance_id']
         new_name = data_from_request['name']
         new_relay_number = data_from_request['relay_number']
+        new_room_id = data_from_request['new_room_id'] # New field
         
         user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
         
-        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
+        # Find the appliance
+        original_room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not original_room:
+            return jsonify({"status": "error", "message": "Original room not found."}), 404
+        appliance = next((a for a in original_room['appliances'] if a['id'] == appliance_id), None)
         if not appliance:
             return jsonify({"status": "error", "message": "Appliance not found."}), 404
         
+        # If room is changing, move the appliance
+        if new_room_id and new_room_id != room_id:
+            target_room = next((r for r in user_data['rooms'] if r['id'] == new_room_id), None)
+            if not target_room:
+                return jsonify({"status": "error", "message": "Target room not found."}), 404
+            
+            # Remove from original room
+            original_room['appliances'].remove(appliance)
+            # Add to new room
+            target_room['appliances'].append(appliance)
+        
+        # Update appliance details
         appliance['name'] = new_name
         appliance['relay_number'] = new_relay_number
         save_user_data(user_data)
@@ -425,7 +439,6 @@ def update_appliance_settings():
         return jsonify({"status": "success", "message": "Appliance settings updated."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route('/api/set-timer', methods=['POST'])
 @login_required
@@ -466,6 +479,87 @@ def set_timer():
         save_user_data(user_data)
         
         return jsonify({"status": "success", "message": "Timer set."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/api/save-room-order', methods=['POST'])
+@login_required
+def save_room_order():
+    try:
+        new_order_ids = request.json['order']
+        user_data = get_user_data()
+        room_map = {room['id']: room for room in user_data['rooms']}
+        user_data['rooms'] = [room_map[id] for id in new_order_ids]
+        save_user_data(user_data)
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/api/save-appliance-order', methods=['POST'])
+@login_required
+def save_appliance_order():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        new_order_ids = data_from_request['order']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        appliance_map = {appliance['id']: appliance for appliance in room['appliances']}
+        room['appliances'] = [appliance_map[id] for id in new_order_ids]
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/get-rooms-and-appliances', methods=['GET'])
+@login_required
+def get_rooms_and_appliances():
+    user_data = get_user_data()
+    return jsonify(user_data['rooms']), 200
+
+@app.route('/api/add-room', methods=['POST'])
+@login_required
+def add_room():
+    try:
+        room_name = request.json['name']
+        user_data = get_user_data()
+        new_room_id = str(len(user_data['rooms']) + 1)
+        user_data['rooms'].append({"id": new_room_id, "name": room_name, "appliances": []})
+        save_user_data(user_data)
+        return jsonify({"status": "success", "room_id": new_room_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/add-appliance', methods=['POST'])
+@login_required
+def add_appliance():
+    try:
+        room_id = request.json['room_id']
+        appliance_name = request.json['name']
+        relay_number = request.json['relay_number']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        new_appliance_id = str(len(room['appliances']) + 1)
+        room['appliances'].append({
+            "id": new_appliance_id,
+            "name": appliance_name,
+            "state": False,
+            "locked": False,
+            "timer": None,
+            "relay_number": int(relay_number)
+        })
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
