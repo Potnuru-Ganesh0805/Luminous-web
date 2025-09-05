@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us{% endblock %}
+
+{% block content %}
+<div class="container mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold mb-2 text-blue-500">Contact Us</h1>
+        <p class="text-gray-500 dark:text-gray-400">We'd love to hear from you. Get in touch with us.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Contact Information Card -->
+        <div data-slot="card" class="bg-card text-card-foreground rounded-xl border p-8 shadow-sm transition-all">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Our Details</h2>
+            <div class="space-y-4 text-gray-700 dark:text-gray-300">
+                <p><strong>Email:</strong> <a href="mailto:contact@luminous.com" class="text-blue-500 hover:underline">contact@luminous.com</a></p>
+                <p><strong>Phone:</strong> +91 99999 99999</p>
+                <p><strong>Address:</strong> S.M. Puram, Srikakulam 532410, Andhra Pradesh, India</p>
+            </div>
+            <div class="mt-6">
+                <p class="font-semibold text-gray-800 dark:text-gray-200">Follow us on social media:</p>
+                <div class="flex space-x-4 mt-2">
+                    <a href="#" class="text-blue-600 hover:text-blue-800 transition-colors text-2xl"><i class="fab fa-twitter-square"></i></a>
+                    <a href="#" class="text-blue-600 hover:text-blue-800 transition-colors text-2xl"><i class="fab fa-linkedin"></i></a>
+                    <a href="#" class="text-blue-600 hover:text-blue-800 transition-colors text-2xl"><i class="fab fa-github-square"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Form Card -->
+        <div data-slot="card" class="bg-card text-card-foreground rounded-xl border p-8 shadow-sm transition-all">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Send us a Message</h2>
+            <form id="contact-form" class="space-y-4">
+                <div>
+                    <label for="form-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                    <input type="text" id="form-name" name="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" required>
+                </div>
+                <div>
+                    <label for="form-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                    <input type="email" id="form-email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" required>
+                </div>
+                <div>
+                    <label for="form-message" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Message</label>
+                    <textarea id="form-message" name="message" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" required></textarea>
+                </div>
+                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">Send Message</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('contact-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        showNotification("Message sent successfully!", "on");
+        // In a real application, you would send this form data to a backend endpoint here.
+        this.reset();
+    });
+</script>
+{% endblock %}
