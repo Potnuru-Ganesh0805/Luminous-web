@@ -4,14 +4,14 @@
 
 :root {
     /* Light Theme */
-    --bg-main-light: #F5F7FA;
-    --bg-card-light: #FFFFFF;
+    --bg-main-light: #FFFFFF;
+    --bg-card-light: #F5F7FA;
     --text-card-foreground-light: #2A3132;
     --text-main-light: #2A3132;
     --border-color-light: #E5E7EB;
     --primary-accent-light: #FB6542;
     --secondary-accent-light: #375E97;
-    --bg-muted-light: #F3F4F6;
+    --bg-muted-light: #E5E7EB;
     --text-muted-foreground-light: #6B7280;
     --text-icon-light: #6B7280;
     --toggle-unchecked-light: #D1D5DB;
