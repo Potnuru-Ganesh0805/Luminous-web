@@ -260,9 +260,9 @@
                 if (appliance.timer) {
                      const timeLeft = Math.floor(appliance.timer - Date.now() / 1000);
                      if (timeLeft > 0) {
-                        const minutes = Math.floor(timeLeft / 60);
-                        const seconds = timeLeft % 60;
-                        timerDisplay = `<span class="absolute top-2 right-2 text-xs font-semibold text-primary-accent">Timer: ${minutes}m ${seconds}s</span>`;
+                         const minutes = Math.floor(timeLeft / 60);
+                         const seconds = timeLeft % 60;
+                         timerDisplay = `<span class="absolute top-2 right-2 text-xs font-semibold text-primary-accent">Timer: ${minutes}m ${seconds}s</span>`;
                      }
                 }
                 
