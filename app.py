@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-super-secret-key' # Change this in production
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'signin' # Updated to 'signin'
 
 # --- Data File Paths ---
 USERS_FILE = 'users.json'
@@ -132,8 +132,8 @@ def load_analytics_data():
     return data
 
 # --- Frontend Routes ---
-@app.route('/login', methods=['GET', 'POST'])
-def login():
+@app.route('/signin', methods=['GET', 'POST'])
+def signin():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
     if request.method == 'POST':
@@ -145,8 +145,8 @@ def login():
                 user = User(user_data['id'], user_data['username'], user_data['password_hash'])
                 login_user(user)
                 return redirect(url_for('home'))
-        return render_template('login.html', error='Invalid username or password.')
-    return render_template('login.html')
+        return render_template('signin.html', error='Invalid username or password.')
+    return render_template('signin.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -157,22 +157,39 @@ def signup():
         password = request.form['password']
         users = load_users()
         if any(u['username'] == username for u in users):
-            return render_template('login.html', error='Username already exists.')
+            return render_template('signup.html', error='Username already exists.')
+        
+        new_user_id = str(len(users) + 1)
         new_user = {
-            'id': str(len(users) + 1),
+            'id': new_user_id,
             'username': username,
             'password_hash': generate_password_hash(password)
         }
         users.append(new_user)
         save_users(users)
-        return redirect(url_for('login'))
-    return render_template('login.html')
+
+        # Create a new entry for the user in data.json
+        data = load_data()
+        data[new_user_id] = {
+            "user_settings": {
+                "name": username,
+                "email": "", "mobile": "", "channel": "email", "theme": "dark"
+            },
+            "rooms": []
+        }
+        save_data(data)
+
+        # Log the new user in and redirect to home
+        user = User(new_user['id'], new_user['username'], new_user['password_hash'])
+        login_user(user)
+        return redirect(url_for('home'))
+    return render_template('signup.html')
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for('signin'))
 
 @app.route('/')
 @login_required
