@@ -345,7 +345,6 @@ def set_lock():
         appliance['locked'] = locked
         save_user_data(user_data)
 
-        # Publish MQTT message for lock state
         if mqtt_client:
             mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:lock:{int(locked)}")
 
