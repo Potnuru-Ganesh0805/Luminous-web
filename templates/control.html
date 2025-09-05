@@ -136,10 +136,12 @@
     let timerIntervals = {};
 
     const fetchRoomsAndAppliances = async () => {
+        console.log("Fetching rooms and appliances...");
         try {
             const response = await fetch('/api/get-rooms-and-appliances');
             if (!response.ok) throw new Error('Failed to fetch rooms and appliances');
             const rooms = await response.json();
+            console.log("Rooms data received:", rooms);
             renderRooms(rooms);
             if (currentRoomId) {
                 const room = rooms.find(r => r.id === currentRoomId);
@@ -183,6 +185,7 @@
     };
     
     const renderRooms = (rooms) => {
+        console.log("Rendering rooms with data:", rooms);
         const container = document.getElementById('room-container');
         container.innerHTML = '';
         if (rooms.length > 0) {
