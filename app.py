@@ -148,10 +148,10 @@ def signin():
         username = request.form['username']
         password = request.form['password']
         users = load_users()
-        for user_data in users:
-            if user_data['username'] == username and check_password_hash(user_data['password_hash'], password):
-                user = User(user_data['id'], user_data['username'], user_data['password_hash'])
-                login_user(user)
+        for user in users:
+            if user['username'] == username and check_password_hash(user['password_hash'], password):
+                user_obj = User(user['id'], user['username'], user['password_hash'])
+                login_user(user_obj)
                 return redirect(url_for('home'))
         return render_template('signin.html', error='Invalid username or password.')
     return render_template('signin.html')
