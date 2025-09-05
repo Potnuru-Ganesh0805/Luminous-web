@@ -29,6 +29,7 @@
                 <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
             </button>
             <h2 class="text-3xl font-bold text-text-card-foreground flex-grow text-center" id="appliances-heading"></h2>
+            
         </div>
         <div class="flex justify-center space-x-4 mb-4">
             <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
@@ -132,6 +133,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 <script>
     let currentRoomId = null;
+    let timerIntervals = {};
 
     const fetchRoomsAndAppliances = async () => {
         try {
@@ -210,18 +212,29 @@
         }
     };
 
-    const updateRoomSelector = (rooms, currentRoomId) => {
-        const selector = document.getElementById('edit-room-selector');
-        selector.innerHTML = '';
-        rooms.forEach(room => {
-            const option = document.createElement('option');
-            option.value = room.id;
-            option.textContent = room.name;
-            if (room.id === currentRoomId) {
-                option.selected = true;
-            }
-            selector.appendChild(option);
-        });
+    const updateTimerDisplay = (card, appliance) => {
+        const timerElement = card.querySelector('.timer-display');
+        if (!timerElement) return;
+
+        clearInterval(timerIntervals[appliance.id]);
+
+        if (appliance.timer && appliance.state) {
+            const update = () => {
+                const timeLeft = Math.floor(appliance.timer - Date.now() / 1000);
+                if (timeLeft > 0) {
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    timerElement.textContent = `Timer: ${minutes}m ${seconds}s`;
+                } else {
+                    timerElement.textContent = `Timer Off`;
+                    clearInterval(timerIntervals[appliance.id]);
+                }
+            };
+            update();
+            timerIntervals[appliance.id] = setInterval(update, 1000);
+        } else {
+            timerElement.textContent = '';
+        }
     };
     
     const renderAppliances = (appliances, roomName, allRooms) => {
@@ -245,14 +258,14 @@
 
                 let timerDisplay = '';
                 if (appliance.timer) {
-                    const timeLeft = Math.floor((appliance.timer - Date.now() / 1000));
-                    if (timeLeft > 0) {
+                     const timeLeft = Math.floor(appliance.timer - Date.now() / 1000);
+                     if (timeLeft > 0) {
                         const minutes = Math.floor(timeLeft / 60);
                         const seconds = timeLeft % 60;
                         timerDisplay = `<span class="absolute top-2 right-2 text-xs font-semibold text-primary-accent">Timer: ${minutes}m ${seconds}s</span>`;
-                    }
+                     }
                 }
-
+                
                 applianceCard.innerHTML = `
                     <div class="flex items-center justify-between mb-4">
                         <div data-slot="card-title" class="leading-none font-semibold pr-2 flex items-center">
@@ -265,7 +278,7 @@
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Timer" onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-clock text-gray-400"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}', '${appliance.name}', '${appliance.relay_number}', '${roomName}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}', '${appliance.name}', '${appliance.relay_number}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
                             </button>
                         </div>
@@ -276,7 +289,7 @@
                             <span data-slot="switch-thumb" class="bg-white pointer-events-none block h-5 w-5 rounded-full ring-0 transition-transform"></span>
                         </button>
                     </div>
-                    ${timerDisplay}
+                    <span class="timer-display absolute bottom-2 left-2 text-xs font-semibold text-primary-accent"></span>
                 `;
                 container.appendChild(applianceCard);
 
@@ -301,6 +314,7 @@
                         sendApplianceState(currentRoomId, appliance.id, newState);
                     }
                 };
+                 updateTimerDisplay(applianceCard, appliance);
             });
             new Sortable(container, {
                 animation: 150,
@@ -486,7 +500,6 @@
                 roomSelector.appendChild(option);
             });
             
-            // Advanced settings toggle
             const advancedSettingsToggle = document.querySelector('.advanced-settings-toggle');
             const advancedSettings = document.getElementById('advanced-settings');
             advancedSettingsToggle.onclick = () => {
