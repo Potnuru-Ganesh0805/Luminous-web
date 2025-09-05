@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<div class="container mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold mb-2 text-blue-500">Analytics Dashboard</h1>
+        <p class="text-gray-500 dark:text-gray-400">Track your energy consumption and savings.</p>
+    </div>
+
+    <!-- Analytics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12" id="analytics-stats">
+        <!-- Stats cards will be dynamically inserted here -->
+    </div>
+
+    <!-- Chart and Controls -->
+    <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold">Power Consumption</h2>
+            <div class="flex space-x-2">
+                <button id="hourly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors active">Hourly</button>
+                <button id="daily-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors">Daily</button>
+                <button id="monthly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors">Monthly</button>
+            </div>
+        </div>
+        <div class="w-full">
+            <canvas id="consumption-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const API_BASE_URL = window.location.origin;
+    let consumptionChart;
+
+    const createChart = (data, label, unit) => {
+        const ctx = document.getElementById('consumption-chart').getContext('2d');
+        if (consumptionChart) {
+            consumptionChart.destroy();
+        }
+        consumptionChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Object.keys(data),
+                datasets: [{
+                    label: label,
+                    data: Object.values(data),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(209, 213, 219, 0.2)',
+                        },
+                        ticks: {
+                            color: 'rgb(156, 163, 175)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(209, 213, 219, 0.2)',
+                        },
+                        ticks: {
+                            color: 'rgb(156, 163, 175)',
+                            callback: function(value) {
+                                return value + ` ${unit}`;
+                            }
+                        }
+                    }
+                }
+            },
+            
+        });
+    };
+
+    const fetchAnalyticsData = async () => {
+        try {
+            const response = await fetch('/api/get-analytics');
+            if (!response.ok) throw new Error('Failed to fetch analytics data.');
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching analytics data:", error);
+            showNotification('Failed to load analytics data.', 'off');
+            return null;
+        }
+    };
+
+    const updateStatsCards = (stats) => {
+        const statsContainer = document.getElementById('analytics-stats');
+        statsContainer.innerHTML = `
+            <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Highest Usage</h3>
+                <p class="text-3xl font-bold text-blue-500">${stats.highest_usage.toFixed(2)} kWh</p>
+            </div>
+            <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Average Usage</h3>
+                <p class="text-3xl font-bold text-blue-500">${stats.average_usage.toFixed(2)} kWh</p>
+            </div>
+            <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Estimated Savings</h3>
+                <p class="text-3xl font-bold text-blue-500">${stats.savings.toFixed(2)} kWh</p>
+            </div>
+        `;
+    };
+
+    const setupChartControls = (data) => {
+        const hourlyBtn = document.getElementById('hourly-btn');
+        const dailyBtn = document.getElementById('daily-btn');
+        const monthlyBtn = document.getElementById('monthly-btn');
+        const buttons = [hourlyBtn, dailyBtn, monthlyBtn];
+
+        const setActive = (activeBtn) => {
+            buttons.forEach(btn => btn.classList.remove('active'));
+            activeBtn.classList.add('active');
+        };
+
+        hourlyBtn.addEventListener('click', () => {
+            setActive(hourlyBtn);
+            createChart(data.hourly, 'Hourly Consumption', 'kWh');
+        });
+
+        dailyBtn.addEventListener('click', () => {
+            setActive(dailyBtn);
+            createChart(data.daily, 'Daily Consumption', 'kWh');
+        });
+
+        monthlyBtn.addEventListener('click', () => {
+            setActive(monthlyBtn);
+            createChart(data.monthly, 'Monthly Consumption', 'kWh');
+        });
+    };
+
+    window.onload = async () => {
+        const data = await fetchAnalyticsData();
+        if (data) {
+            updateStatsCards(data.stats);
+            setupChartControls(data);
+            createChart(data.hourly, 'Hourly Consumption', 'kWh');
+        }
+    };
+</script>
+{% endblock %}
