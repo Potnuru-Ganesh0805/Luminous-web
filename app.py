@@ -187,10 +187,10 @@ def signup():
                 "id": "1",
                 "name": "Hall",
                 "appliances": [
-                    {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None},
-                    {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None},
-                    {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None},
-                    {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None}
+                    {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None, "relay_number": 1},
+                    {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None, "relay_number": 2},
+                    {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None, "relay_number": 3},
+                    {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None, "relay_number": 4}
                 ]
             }]
         }
@@ -247,13 +247,11 @@ def contact():
 @app.route('/api/esp/check-in', methods=['GET'])
 def check_in():
     data = load_data()
-    # The ESP needs to know which user's command to get
     user_id = request.args.get('user_id')
     user_data = data.get(user_id, {})
     last_command = user_data.get('last_command', {})
     
     if last_command and last_command.get('timestamp', 0) > user_data.get('last_command_sent_time', 0):
-        # Update the timestamp to mark the command as "sent" to the device
         user_data['last_command_sent_time'] = last_command['timestamp']
         data[user_id] = user_data
         save_data(data)
@@ -284,19 +282,18 @@ def set_appliance_state():
 
         appliance['state'] = state
         
-        # Update last command for ESP to pick up
         user_data['last_command'] = {
             "room_id": room_id,
             "appliance_id": appliance_id,
             "state": state,
+            "relay_number": appliance['relay_number'],
             "timestamp": int(time.time())
         }
         
         save_user_data(user_data)
         
-        # Publish MQTT message
         if mqtt_client:
-            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{int(state)}")
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:{int(state)}")
         
         return jsonify({"status": "success", "message": "Command sent."}), 200
     except Exception as e:
@@ -348,6 +345,10 @@ def set_lock():
         appliance['locked'] = locked
         save_user_data(user_data)
 
+        # Publish MQTT message for lock state
+        if mqtt_client:
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:lock:{int(locked)}")
+
         return jsonify({"status": "success", "message": "Lock state updated."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -377,6 +378,7 @@ def add_appliance():
     try:
         room_id = request.json['room_id']
         appliance_name = request.json['name']
+        relay_number = request.json['relay_number']
         
         user_data = get_user_data()
         room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
@@ -389,11 +391,82 @@ def add_appliance():
             "name": appliance_name,
             "state": False,
             "locked": False,
-            "timer": None
+            "timer": None,
+            "relay_number": int(relay_number)
         })
         save_user_data(user_data)
         
         return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/update-appliance-settings', methods=['POST'])
+@login_required
+def update_appliance_settings():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+        new_name = data_from_request['name']
+        new_relay_number = data_from_request['relay_number']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
+        if not appliance:
+            return jsonify({"status": "error", "message": "Appliance not found."}), 404
+        
+        appliance['name'] = new_name
+        appliance['relay_number'] = new_relay_number
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "message": "Appliance settings updated."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/set-timer', methods=['POST'])
+@login_required
+def set_timer():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+        duration_minutes = data_from_request['duration_minutes']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
+        if not appliance:
+            return jsonify({"status": "error", "message": "Appliance not found."}), 404
+        
+        if appliance.get('locked', False):
+            return jsonify({"status": "error", "message": "Appliance is locked."}), 403
+        
+        if duration_minutes > 0:
+            appliance['state'] = True
+            appliance['timer'] = time.time() + duration_minutes * 60
+            user_data['last_command'] = {
+                "room_id": room_id,
+                "appliance_id": appliance_id,
+                "state": True,
+                "relay_number": appliance['relay_number'],
+                "timestamp": int(time.time())
+            }
+            if mqtt_client:
+                mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:on")
+        else:
+            appliance['timer'] = None
+
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "message": "Timer set."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
