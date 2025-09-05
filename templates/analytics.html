@@ -35,23 +35,36 @@
     const API_BASE_URL = window.location.origin;
     let consumptionChart;
 
-    const createChart = (data, label, unit) => {
+    const createChart = (data, label, type, unit) => {
         const ctx = document.getElementById('consumption-chart').getContext('2d');
         if (consumptionChart) {
             consumptionChart.destroy();
         }
+        
+        let datasetConfig = {
+            label: label,
+            data: Object.values(data),
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-accent-light'),
+            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-light'),
+            fill: false,
+            tension: 0.3,
+            type: 'bar',
+        };
+
+        if (type === 'line') {
+             datasetConfig = {
+                ...datasetConfig,
+                type: 'line',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                fill: true,
+                borderColor: 'rgb(59, 130, 246)',
+            };
+        }
+
         consumptionChart = new Chart(ctx, {
-            type: 'line',
             data: {
                 labels: Object.keys(data),
-                datasets: [{
-                    label: label,
-                    data: Object.values(data),
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                    fill: true,
-                    tension: 0.3
-                }]
+                datasets: [datasetConfig]
             },
             options: {
                 responsive: true,
@@ -83,7 +96,6 @@
                     }
                 }
             },
-            
         });
     };
 
@@ -130,17 +142,17 @@
 
         hourlyBtn.addEventListener('click', () => {
             setActive(hourlyBtn);
-            createChart(data.hourly, 'Hourly Consumption', 'kWh');
+            createChart(data.hourly, 'Hourly Consumption', 'bar', 'kWh');
         });
 
         dailyBtn.addEventListener('click', () => {
             setActive(dailyBtn);
-            createChart(data.daily, 'Daily Consumption', 'kWh');
+            createChart(data.daily, 'Daily Consumption', 'bar', 'kWh');
         });
 
         monthlyBtn.addEventListener('click', () => {
             setActive(monthlyBtn);
-            createChart(data.monthly, 'Monthly Consumption', 'kWh');
+            createChart(data.monthly, 'Monthly Consumption', 'bar', 'kWh');
         });
     };
 
@@ -149,7 +161,7 @@
         if (data) {
             updateStatsCards(data.stats);
             setupChartControls(data);
-            createChart(data.hourly, 'Hourly Consumption', 'kWh');
+            createChart(data.hourly, 'Hourly Consumption', 'bar', 'kWh');
         }
     };
 </script>
