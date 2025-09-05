@@ -26,12 +26,27 @@ MQTT_PORT = 1883
 MQTT_TOPIC_COMMAND = "lumino_us/commands"
 MQTT_TOPIC_STATUS = "lumino_us/status"
 
-mqtt_client = mqtt.Client()
-def on_connect(client, userdata, flags, rc):
-    print(f"Connected to MQTT Broker with result code {rc}")
-mqtt_client.on_connect = on_connect
-mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-mqtt_client.loop_start()
+mqtt_client = None
+
+def connect_mqtt():
+    """Connects to the MQTT broker."""
+    global mqtt_client
+    try:
+        mqtt_client = mqtt.Client()
+        def on_connect(client, userdata, flags, rc):
+            if rc == 0:
+                print("Connected to MQTT Broker successfully!")
+            else:
+                print(f"Failed to connect to MQTT Broker, return code {rc}")
+        mqtt_client.on_connect = on_connect
+        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_client.loop_start()
+    except Exception as e:
+        print(f"Error connecting to MQTT: {e}")
+
+# Call the connection function after the app has started
+# This is a good practice for production servers like Gunicorn
+# because it ensures the network is ready.
 
 # --- User Management ---
 class User(UserMixin):
@@ -246,7 +261,8 @@ def set_appliance_state():
         save_user_data(user_data)
         
         # Publish MQTT message
-        mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{int(state)}")
+        if mqtt_client:
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{int(state)}")
         
         return jsonify({"status": "success", "message": "Command sent."}), 200
     except Exception as e:
@@ -366,6 +382,7 @@ def set_user_settings():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    generate_analytics_data() 
+    generate_analytics_data()
+    connect_mqtt()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
