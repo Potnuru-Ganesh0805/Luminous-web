@@ -3,50 +3,112 @@
  */
 
 :root {
-    --bg-card-light: #ffffff;
-    --text-card-foreground-light: #1f2937;
-    --border-color-light: #e5e7eb;
-    --bg-muted-light: #f3f4f6;
-    --text-muted-foreground-light: #6b7280;
+    /* Light Theme */
+    --bg-main-light: #F5F7FA;
+    --bg-card-light: #FFFFFF;
+    --text-card-foreground-light: #2A3132;
+    --text-main-light: #2A3132;
+    --border-color-light: #E5E7EB;
+    --primary-accent-light: #FB6542;
+    --secondary-accent-light: #375E97;
+    --bg-muted-light: #F3F4F6;
+    --text-muted-foreground-light: #6B7280;
+    --text-icon-light: #6B7280;
+    --toggle-unchecked-light: #D1D5DB;
 
-    --bg-card-dark: #1f2937;
-    --text-card-foreground-dark: #f9fafb;
+    /* Dark Theme */
+    --bg-main-dark: #101820;
+    --bg-card-dark: #1E2761;
+    --text-card-foreground-dark: #FFFFFF;
+    --text-main-dark: #DADADA;
     --border-color-dark: #374151;
+    --primary-accent-dark: #FEE715;
+    --secondary-accent-dark: #408EC6;
     --bg-muted-dark: #374151;
-    --text-muted-foreground-dark: #9ca3af;
+    --text-muted-foreground-dark: #9CA3AF;
+    --text-icon-dark: #9CA3AF;
+    --toggle-unchecked-dark: #4B5563;
 }
 
 /* Base colors for dark/light themes */
+.bg-primary-accent {
+    background-color: var(--primary-accent-light);
+}
+
+.text-primary-accent {
+    color: var(--primary-accent-light);
+}
+
+.bg-secondary-accent {
+    background-color: var(--secondary-accent-light);
+}
+
+.text-secondary-accent {
+    color: var(--secondary-accent-light);
+}
+
 .bg-card {
     background-color: var(--bg-card-light);
 }
+
 .text-card-foreground {
     color: var(--text-card-foreground-light);
 }
+
 .border {
     border-color: var(--border-color-light);
 }
-.hover\:bg-muted:hover {
+
+.bg-muted {
     background-color: var(--bg-muted-light);
 }
+
 .text-muted-foreground {
     color: var(--text-muted-foreground-light);
+}
+
+.text-icon {
+    color: var(--text-icon-light);
+}
+
+.dark .bg-primary-accent {
+    background-color: var(--primary-accent-dark);
+}
+
+.dark .text-primary-accent {
+    color: var(--primary-accent-dark);
+}
+
+.dark .bg-secondary-accent {
+    background-color: var(--secondary-accent-dark);
+}
+
+.dark .text-secondary-accent {
+    color: var(--secondary-accent-dark);
 }
 
 .dark .bg-card {
     background-color: var(--bg-card-dark);
 }
+
 .dark .text-card-foreground {
     color: var(--text-card-foreground-dark);
 }
+
 .dark .border {
     border-color: var(--border-color-dark);
 }
-.dark .hover\:bg-muted:hover {
+
+.dark .bg-muted {
     background-color: var(--bg-muted-dark);
 }
+
 .dark .text-muted-foreground {
     color: var(--text-muted-foreground-dark);
+}
+
+.dark .text-icon {
+    color: var(--text-icon-dark);
 }
 
 /* Common Styles */
@@ -65,12 +127,18 @@ body {
     @apply text-gray-700 hover:bg-gray-300 dark:text-gray-300 dark:hover:bg-gray-700;
 }
 .nav-link.active {
-    @apply bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700;
+    @apply bg-primary-accent text-white hover:bg-opacity-80 dark:bg-primary-accent dark:hover:bg-opacity-80;
 }
 
 /* Custom styles for the toggle switch (button) */
 .toggle-switch-button {
-    @apply peer data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-700 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background inline-flex h-[28px] w-12 shrink-0 items-center rounded-full border-2 border-transparent shadow-xs transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply peer data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-toggle-unchecked focus-visible:ring-secondary-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background inline-flex h-[28px] w-12 shrink-0 items-center rounded-full border-2 border-transparent shadow-xs transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+.bg-toggle-unchecked {
+    background-color: var(--toggle-unchecked-light);
+}
+.dark .bg-toggle-unchecked {
+    background-color: var(--toggle-unchecked-dark);
 }
 
 .toggle-switch-button[data-state="unchecked"] span {
@@ -89,17 +157,21 @@ body {
     @apply text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600;
 }
 .chart-btn.active {
-    @apply bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700;
+    @apply bg-secondary-accent text-white hover:bg-opacity-80 dark:bg-secondary-accent dark:hover:bg-opacity-80;
 }
 
 /* Loading Animation */
 .loader-circle {
     border: 5px solid #e2e8f0;
-    border-top: 5px solid #3b82f6;
+    border-top: 5px solid var(--primary-accent-light);
     border-radius: 50%;
     width: 50px;
     height: 50px;
     animation: spin 1.5s linear infinite;
+}
+
+.dark .loader-circle {
+    border-top: 5px solid var(--primary-accent-dark);
 }
 
 @keyframes spin {
