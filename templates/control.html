@@ -184,8 +184,12 @@
     const fetchRoomsAndAppliances = async () => {
         try {
             const response = await fetch('/api/get-rooms-and-appliances');
-            if (!response.ok) throw new Error('Failed to fetch rooms and appliances');
+            if (!response.ok) {
+                console.error('API call failed with status:', response.status);
+                throw new Error('Failed to fetch rooms and appliances');
+            }
             const rooms = await response.json();
+            console.log('API response:', rooms);
             allRoomsData = rooms; // Store the fetched data globally
             renderRooms(rooms);
             if (currentRoomId) {
@@ -199,7 +203,7 @@
                 }
             }
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching data:', error);
             showNotification('Failed to load data.', 'off');
         }
     };
@@ -230,6 +234,7 @@
     };
 
     const renderRooms = (rooms) => {
+        console.log('Rendering rooms:', rooms);
         const container = document.getElementById('room-container');
         container.innerHTML = '';
         if (rooms.length > 0) {
@@ -301,6 +306,7 @@
     };
 
     const renderAppliances = (appliances, roomName) => {
+        console.log('Rendering appliances for room:', roomName, appliances);
         const container = document.getElementById('appliance-container');
         container.innerHTML = '';
         const appliancesHeading = document.getElementById('appliances-heading');
