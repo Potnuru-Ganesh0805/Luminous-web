@@ -1,45 +1,108 @@
-/*
- * This file contains custom CSS rules shared across all pages of the website.
- * It's linked in each HTML file to ensure a consistent look and feel.
+/* * This file contains custom CSS rules for the entire web application.
+ * It's designed to be minimalist, functional, and support a dark/light theme.
  */
 
-/* Custom styles for the toggle switch */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 60px;
-    height: 34px;
+:root {
+    --bg-card-light: #ffffff;
+    --text-card-foreground-light: #1f2937;
+    --border-color-light: #e5e7eb;
+    --bg-muted-light: #f3f4f6;
+    --text-muted-foreground-light: #6b7280;
+
+    --bg-card-dark: #1f2937;
+    --text-card-foreground-dark: #f9fafb;
+    --border-color-dark: #374151;
+    --bg-muted-dark: #374151;
+    --text-muted-foreground-dark: #9ca3af;
 }
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
+
+/* Base colors for dark/light themes */
+.bg-card {
+    background-color: var(--bg-card-light);
 }
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 34px;
+.text-card-foreground {
+    color: var(--text-card-foreground-light);
 }
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    transition: .4s;
+.border {
+    border-color: var(--border-color-light);
+}
+.hover\:bg-muted:hover {
+    background-color: var(--bg-muted-light);
+}
+.text-muted-foreground {
+    color: var(--text-muted-foreground-light);
+}
+
+.dark .bg-card {
+    background-color: var(--bg-card-dark);
+}
+.dark .text-card-foreground {
+    color: var(--text-card-foreground-dark);
+}
+.dark .border {
+    border-color: var(--border-color-dark);
+}
+.dark .hover\:bg-muted:hover {
+    background-color: var(--bg-muted-dark);
+}
+.dark .text-muted-foreground {
+    color: var(--text-muted-foreground-dark);
+}
+
+/* Common Styles */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    transition: background-color 0.5s, color 0.5s;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Sidebar Navigation Links */
+.nav-link {
+    @apply flex items-center px-4 py-2 rounded-md font-medium transition-colors;
+    @apply text-gray-700 hover:bg-gray-300 dark:text-gray-300 dark:hover:bg-gray-700;
+}
+.nav-link.active {
+    @apply bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700;
+}
+
+/* Custom styles for the toggle switch (button) */
+.toggle-switch-button {
+    @apply peer data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-700 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background inline-flex h-[28px] w-12 shrink-0 items-center rounded-full border-2 border-transparent shadow-xs transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.toggle-switch-button[data-state="unchecked"] span {
+    transform: translateX(2px);
+}
+.toggle-switch-button[data-state="checked"] span {
+    transform: translateX(calc(100% + 2px));
+}
+
+.toggle-switch-button span {
+    @apply bg-white pointer-events-none block h-5 w-5 rounded-full ring-0 transition-transform;
+}
+
+/* Chart Buttons */
+.chart-btn {
+    @apply text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600;
+}
+.chart-btn.active {
+    @apply bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700;
+}
+
+/* Loading Animation */
+.loader-circle {
+    border: 5px solid #e2e8f0;
+    border-top: 5px solid #3b82f6;
     border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1.5s linear infinite;
 }
-input:checked + .slider {
-    background-color: #22c55e;
-}
-input:checked + .slider:before {
-    transform: translateX(26px);
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
