@@ -124,11 +124,16 @@ def load_analytics_data():
     with open(ANALYTICS_FILE, 'r') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            data.append({
-                'date': row['date'],
-                'hour': int(row['hour']),
-                'consumption': float(row['consumption'])
-            })
+            if 'hour' in row and 'consumption' in row and row['hour'] is not None and row['consumption'] is not None:
+                try:
+                    data.append({
+                        'date': row['date'],
+                        'hour': int(row['hour']),
+                        'consumption': float(row['consumption'])
+                    })
+                except (ValueError, TypeError):
+                    # Skip rows with invalid data
+                    continue
     return data
 
 # --- Frontend Routes ---
