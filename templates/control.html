@@ -67,9 +67,29 @@
             <form id="add-appliance-form">
                 <label for="new-appliance-name" class="block text-gray-700 dark:text-gray-300 mb-2">Appliance Name:</label>
                 <input type="text" id="new-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                <label for="new-appliance-relay" class="block text-gray-700 dark:text-gray-300 mb-2 mt-4">Relay Number (1-4):</label>
+                <input type="number" id="new-appliance-relay" name="relay" min="1" max="4" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
                 <div class="flex justify-end space-x-4 mt-6">
                     <button type="button" id="cancel-appliance-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
                     <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="settings-appliance-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-card p-6 rounded-lg shadow-xl w-80">
+            <h3 class="text-xl font-bold mb-4">Edit Appliance Settings</h3>
+            <form id="settings-appliance-form">
+                <input type="hidden" id="edit-room-id">
+                <input type="hidden" id="edit-appliance-id">
+                <label for="edit-appliance-name" class="block text-gray-700 dark:text-gray-300 mb-2">Appliance Name:</label>
+                <input type="text" id="edit-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                <label for="edit-appliance-relay" class="block text-gray-700 dark:text-gray-300 mb-2 mt-4">Relay Number (1-4):</label>
+                <input type="number" id="edit-appliance-relay" name="relay" min="1" max="4" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancel-settings-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors">Save</button>
                 </div>
             </form>
         </div>
@@ -140,12 +160,17 @@
                 applianceCard.className = "bg-card text-card-foreground rounded-xl border py-6 px-6 shadow-sm transition-all flex flex-col items-stretch";
                 applianceCard.innerHTML = `
                     <div class="flex items-center justify-between mb-4">
-                        <div data-slot="card-title" class="leading-none font-semibold pr-2">
+                        <div data-slot="card-title" class="leading-none font-semibold pr-2 flex items-center">
                             <input type="text" value="${appliance.name}" class="appliance-name-input w-full bg-transparent font-medium focus:outline-none focus:border-b focus:border-gray-400 dark:text-gray-200" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" onblur="saveApplianceName(this)" disabled>
                         </div>
-                        <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Manual Override" onclick="toggleLock('${currentRoomId}', '${appliance.id}')">
-                            <i id="lock-icon-${appliance.id}" class="h-4 w-4 fas ${is_locked ? 'fa-lock text-red-500' : 'fa-unlock text-gray-400'}"></i>
-                        </button>
+                        <div class="flex items-center space-x-2">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Manual Override" onclick="toggleLock('${currentRoomId}', '${appliance.id}')">
+                                <i id="lock-icon-${appliance.id}" class="h-4 w-4 fas ${is_locked ? 'fa-lock text-red-500' : 'fa-unlock text-gray-400'}"></i>
+                            </button>
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
+                                <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
+                            </button>
+                        </div>
                     </div>
                     <div data-slot="card-content" class="flex-grow flex items-center justify-between">
                         <i class="fas fa-lightbulb text-2xl ${is_on ? 'text-primary-accent' : 'text-gray-400 dark:text-gray-600'} transition-colors"></i>
@@ -158,7 +183,7 @@
 
                 // Add event listeners for name editing and toggling
                 const nameInput = applianceCard.querySelector('.appliance-name-input');
-                nameInput.addEventListener('click', () => {
+                nameInput.addEventListener('dblclick', () => {
                     if (!is_locked) {
                         nameInput.disabled = false;
                         nameInput.focus();
@@ -167,8 +192,10 @@
 
                 const toggleBtn = applianceCard.querySelector('.toggle-switch-button');
                 toggleBtn.onclick = () => {
-                    const newState = !is_on;
-                    sendApplianceState(currentRoomId, appliance.id, newState);
+                    if (!is_locked) {
+                        const newState = !is_on;
+                        sendApplianceState(currentRoomId, appliance.id, newState);
+                    }
                 };
             });
         } else {
@@ -252,6 +279,28 @@
             showNotification('Failed to update lock state.', 'off');
         }
     };
+    
+    // Timer Functionality
+    const setTimer = async (roomId, applianceId, durationMinutes) => {
+        try {
+            const response = await fetch('/api/set-timer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, duration_minutes: durationMinutes })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification(`Timer set for ${durationMinutes} minutes.`, 'on');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to set timer.', 'off');
+        }
+    };
+
 
     // Modal and Form Handlers
     document.getElementById('add-room-btn').addEventListener('click', () => {
@@ -287,10 +336,11 @@
     document.getElementById('add-appliance-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const applianceName = document.getElementById('new-appliance-name').value;
+        const relayNumber = document.getElementById('new-appliance-relay').value;
         const response = await fetch('/api/add-appliance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_id: currentRoomId, name: applianceName })
+            body: JSON.stringify({ room_id: currentRoomId, name: applianceName, relay_number: relayNumber })
         });
         const result = await response.json();
         if (response.ok) {
