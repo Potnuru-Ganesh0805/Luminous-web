@@ -21,31 +21,34 @@
             <!-- Room cards will be dynamically inserted here -->
         </div>
     </div>
-    
+
     <!-- Appliance View -->
     <div id="appliances-view" class="hidden transition-transform duration-500">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex justify-between items-center mb-4">
             <button id="back-to-rooms-btn" class="bg-gray-400 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-500 transition-colors">
                 <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
             </button>
-            <h2 class="text-3xl font-bold text-text-card-foreground flex-grow text-center" id="appliances-heading"></h2>
-            
+            <div class="flex-grow flex justify-center">
+                 <h2 class="text-2xl font-bold text-text-card-foreground" id="appliances-heading"></h2>
+            </div>
         </div>
         <div class="flex justify-center space-x-4 mb-4">
-            <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                <i class="fas fa-camera mr-2"></i>Open Webcam
-            </button>
-            <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                <i class="fas fa-eye mr-2"></i>Start Monitoring
-            </button>
+             <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-camera mr-2"></i>Open Webcam
+                </button>
+                <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-eye mr-2"></i>Start Monitoring
+                </button>
         </div>
+
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Appliance cards will be dynamically inserted here -->
         </div>
-        <button id="add-appliance-btn" class="fixed bottom-8 right-8 bg-secondary-accent text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-opacity-80 transition-colors">
+         <button id="add-appliance-btn" class="fixed bottom-8 right-8 bg-secondary-accent text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-opacity-80 transition-colors">
             <i class="fas fa-plus mr-2"></i> Add Appliance
         </button>
     </div>
+
 
     <!-- Modals for adding rooms and appliances -->
     <div id="add-room-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
@@ -77,7 +80,6 @@
             </form>
         </div>
     </div>
-    
     <div id="settings-appliance-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Edit Appliance Settings</h3>
@@ -86,24 +88,8 @@
                 <input type="hidden" id="edit-appliance-id">
                 <label for="edit-appliance-name" class="block text-text-card-foreground mb-2">Appliance Name:</label>
                 <input type="text" id="edit-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
-                
-                <div class="mt-4">
-                    <label for="edit-room-selector" class="block text-text-card-foreground mb-2">Change Room:</label>
-                    <select id="edit-room-selector" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none">
-                        <!-- Options will be populated by JS -->
-                    </select>
-                </div>
-
-                <div class="mt-4">
-                    <div class="advanced-settings-toggle cursor-pointer font-semibold text-secondary-accent hover:underline">
-                        Advanced Settings <i class="fas fa-caret-down"></i>
-                    </div>
-                    <div id="advanced-settings" class="hidden pt-2 border-t mt-2">
-                        <label for="edit-appliance-relay" class="block text-text-card-foreground mb-2">Relay Number (1-4):</label>
-                        <input type="number" id="edit-appliance-relay" name="relay" min="1" max="4" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
-                    </div>
-                </div>
-
+                <label for="edit-appliance-relay" class="block text-text-card-foreground mb-2 mt-4">Relay Number (1-4):</label>
+                <input type="number" id="edit-appliance-relay" name="relay" min="1" max="4" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
                 <div class="flex justify-end space-x-4 mt-6">
                     <button type="button" id="cancel-settings-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
                     <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors">Save</button>
@@ -133,20 +119,17 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 <script>
     let currentRoomId = null;
-    let timerIntervals = {};
 
     const fetchRoomsAndAppliances = async () => {
-        console.log("Fetching rooms and appliances...");
         try {
             const response = await fetch('/api/get-rooms-and-appliances');
             if (!response.ok) throw new Error('Failed to fetch rooms and appliances');
             const rooms = await response.json();
-            console.log("Rooms data received:", rooms);
             renderRooms(rooms);
             if (currentRoomId) {
                 const room = rooms.find(r => r.id === currentRoomId);
                 if (room) {
-                    renderAppliances(room.appliances, room.name, rooms);
+                    renderAppliances(room.appliances, room.name);
                 } else {
                     currentRoomId = null;
                     document.getElementById('rooms-view').classList.remove('hidden');
@@ -158,37 +141,13 @@
             showNotification('Failed to load data.', 'off');
         }
     };
-    
-    // Save new room order to the backend
-    const saveNewRoomOrder = async (newOrder) => {
-        try {
-            await fetch('/api/save-room-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: newOrder })
-            });
-        } catch (error) {
-            console.error("Failed to save new room order:", error);
-        }
-    };
-    
-    const saveNewApplianceOrder = async (roomId, newOrder) => {
-        try {
-            await fetch('/api/save-appliance-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, order: newOrder })
-            });
-        } catch (error) {
-            console.error("Failed to save new appliance order:", error);
-        }
-    };
-    
+
     const renderRooms = (rooms) => {
-        console.log("Rendering rooms with data:", rooms);
         const container = document.getElementById('room-container');
         container.innerHTML = '';
         if (rooms.length > 0) {
+            document.getElementById('rooms-view').classList.remove('hidden');
+            document.getElementById('appliances-view').classList.add('hidden');
             rooms.forEach(room => {
                 const roomCard = document.createElement('div');
                 roomCard.setAttribute('data-slot', 'card');
@@ -196,7 +155,7 @@
                 roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all cursor-pointer hover:scale-105 transform";
                 roomCard.onclick = () => {
                     currentRoomId = room.id;
-                    renderAppliances(room.appliances, room.name, rooms);
+                    renderAppliances(room.appliances, room.name);
                 };
                 roomCard.innerHTML = `<h3 class="text-xl font-bold">${room.name}</h3><p class="text-gray-500">${room.appliances.length} Appliances</p>`;
                 container.appendChild(roomCard);
@@ -215,37 +174,13 @@
         }
     };
 
-    const updateTimerDisplay = (card, appliance) => {
-        const timerElement = card.querySelector('.timer-display');
-        if (!timerElement) return;
-
-        clearInterval(timerIntervals[appliance.id]);
-
-        if (appliance.timer && appliance.state) {
-            const update = () => {
-                const timeLeft = Math.floor(appliance.timer - Date.now() / 1000);
-                if (timeLeft > 0) {
-                    const minutes = Math.floor(timeLeft / 60);
-                    const seconds = timeLeft % 60;
-                    timerElement.textContent = `Timer: ${minutes}m ${seconds}s`;
-                } else {
-                    timerElement.textContent = `Timer Off`;
-                    clearInterval(timerIntervals[appliance.id]);
-                }
-            };
-            update();
-            timerIntervals[appliance.id] = setInterval(update, 1000);
-        } else {
-            timerElement.textContent = '';
-        }
-    };
     
-    const renderAppliances = (appliances, roomName, allRooms) => {
+    const renderAppliances = (appliances, roomName) => {
         const container = document.getElementById('appliance-container');
         container.innerHTML = '';
         const appliancesHeading = document.getElementById('appliances-heading');
         if (appliancesHeading) {
-            appliancesHeading.textContent = roomName;
+            appliancesHeading.textContent = `${roomName} Appliances`;
         }
         document.getElementById('rooms-view').classList.add('hidden');
         document.getElementById('appliances-view').classList.remove('hidden');
@@ -254,21 +189,11 @@
             appliances.forEach(appliance => {
                 const is_on = appliance.state;
                 const is_locked = appliance.locked;
+
                 const applianceCard = document.createElement('div');
                 applianceCard.setAttribute('data-slot', 'card');
                 applianceCard.setAttribute('data-id', appliance.id);
-                applianceCard.className = "bg-card text-card-foreground rounded-xl border py-6 px-6 shadow-sm transition-all flex flex-col items-stretch relative";
-
-                let timerDisplay = '';
-                if (appliance.timer) {
-                     const timeLeft = Math.floor(appliance.timer - Date.now() / 1000);
-                     if (timeLeft > 0) {
-                         const minutes = Math.floor(timeLeft / 60);
-                         const seconds = timeLeft % 60;
-                         timerDisplay = `<span class="absolute top-2 right-2 text-xs font-semibold text-primary-accent">Timer: ${minutes}m ${seconds}s</span>`;
-                     }
-                }
-                
+                applianceCard.className = "bg-card text-card-foreground rounded-xl border py-6 px-6 shadow-sm transition-all flex flex-col items-stretch";
                 applianceCard.innerHTML = `
                     <div class="flex items-center justify-between mb-4">
                         <div data-slot="card-title" class="leading-none font-semibold pr-2 flex items-center">
@@ -281,7 +206,7 @@
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Timer" onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-clock text-gray-400"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}', '${appliance.name}', '${appliance.relay_number}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
                             </button>
                         </div>
@@ -292,10 +217,10 @@
                             <span data-slot="switch-thumb" class="bg-white pointer-events-none block h-5 w-5 rounded-full ring-0 transition-transform"></span>
                         </button>
                     </div>
-                    <span class="timer-display absolute bottom-2 left-2 text-xs font-semibold text-primary-accent"></span>
                 `;
                 container.appendChild(applianceCard);
 
+                // Add event listeners for name editing and toggling
                 const nameInput = applianceCard.querySelector('.appliance-name-input');
                 nameInput.addEventListener('dblclick', () => {
                     if (!is_locked) {
@@ -303,6 +228,7 @@
                         nameInput.focus();
                     }
                 });
+                 // Re-apply event listeners for in-place editing
                 nameInput.addEventListener('blur', (e) => saveApplianceName(e.target));
                 nameInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -317,9 +243,9 @@
                         sendApplianceState(currentRoomId, appliance.id, newState);
                     }
                 };
-                 updateTimerDisplay(applianceCard, appliance);
             });
-            new Sortable(container, {
+            // Make appliances sortable
+             new Sortable(container, {
                 animation: 150,
                 ghostClass: 'bg-gray-300 dark:bg-gray-600',
                 onEnd: async (evt) => {
@@ -331,7 +257,7 @@
             container.innerHTML = `<p class="text-center text-gray-500">No appliances in this room yet. Click "Add Appliance" to get started!</p>`;
         }
     };
-    
+
     // API Callbacks
     const sendApplianceState = async (roomId, applianceId, state) => {
         try {
@@ -408,7 +334,7 @@
             showNotification('Failed to update lock state.', 'off');
         }
     };
-    
+
     // Timer Functionality
     const setTimer = async (roomId, applianceId, durationMinutes) => {
         try {
@@ -480,7 +406,7 @@
             showNotification(`Error: ${result.message}`, 'off');
         }
     });
-
+    
     const openApplianceSettings = async (roomId, applianceId) => {
         try {
             const response = await fetch('/api/get-rooms-and-appliances');
@@ -490,26 +416,8 @@
             document.getElementById('edit-room-id').value = roomId;
             document.getElementById('edit-appliance-id').value = applianceId;
             document.getElementById('edit-appliance-name').value = appliance.name;
+            document.getElementById('edit-appliance-relay').value = appliance.relay_number;
             
-            const roomSelector = document.getElementById('edit-room-selector');
-            roomSelector.innerHTML = '';
-            rooms.forEach(room => {
-                const option = document.createElement('option');
-                option.value = room.id;
-                option.textContent = room.name;
-                if (room.id === roomId) {
-                    option.selected = true;
-                }
-                roomSelector.appendChild(option);
-            });
-            
-            const advancedSettingsToggle = document.querySelector('.advanced-settings-toggle');
-            const advancedSettings = document.getElementById('advanced-settings');
-            advancedSettingsToggle.onclick = () => {
-                advancedSettings.classList.toggle('hidden');
-                document.getElementById('edit-appliance-relay').value = appliance.relay_number;
-            };
-
             document.getElementById('settings-appliance-modal').classList.remove('hidden');
         } catch (error) {
             console.error(error);
@@ -527,13 +435,12 @@
         const applianceId = document.getElementById('edit-appliance-id').value;
         const newName = document.getElementById('edit-appliance-name').value;
         const newRelay = document.getElementById('edit-appliance-relay').value;
-        const newRoomId = document.getElementById('edit-room-selector').value;
         
         try {
             const response = await fetch('/api/update-appliance-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay, new_room_id: newRoomId })
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay })
             });
             const result = await response.json();
             if (response.ok) {
@@ -548,57 +455,13 @@
             showNotification('Failed to save settings.', 'off');
         }
     });
-    
-    const openTimerModal = async (roomId, applianceId) => {
-        document.getElementById('timer-room-id').value = roomId;
-        document.getElementById('timer-appliance-id').value = applianceId;
-        document.getElementById('timer-modal').classList.remove('hidden');
-    };
-    
-    document.getElementById('cancel-timer-btn').addEventListener('click', () => {
-        document.getElementById('timer-modal').classList.add('hidden');
-    });
-
-    document.getElementById('timer-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const roomId = document.getElementById('timer-room-id').value;
-        const applianceId = document.getElementById('timer-appliance-id').value;
-        const durationMinutes = document.getElementById('timer-duration').value;
-        
-        await setTimer(roomId, applianceId, durationMinutes);
-        document.getElementById('timer-modal').classList.add('hidden');
-    });
-
-    const saveNewRoomOrder = async (newOrder) => {
-        try {
-            await fetch('/api/save-room-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: newOrder })
-            });
-        } catch (error) {
-            console.error("Failed to save new room order:", error);
-        }
-    };
-    
-    const saveNewApplianceOrder = async (roomId, newOrder) => {
-        try {
-            await fetch('/api/save-appliance-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, order: newOrder })
-            });
-        } catch (error) {
-            console.error("Failed to save new appliance order:", error);
-        }
-    };
 
     document.getElementById('back-to-rooms-btn').addEventListener('click', () => {
         currentRoomId = null;
         document.getElementById('rooms-view').classList.remove('hidden');
         document.getElementById('appliances-view').classList.add('hidden');
     });
-    
+
     // Placeholder function for the new buttons
     const handleWebcam = () => showNotification("Opening webcam...", 'on');
     const handleMonitoring = () => showNotification("Starting AI monitoring...", 'on');
