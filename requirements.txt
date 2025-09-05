@@ -3,3 +3,4 @@ flask-login
 paho-mqtt
 werkzeug
 gunicorn
+requests
