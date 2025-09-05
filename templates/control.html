@@ -131,7 +131,7 @@
             if (currentRoomId) {
                 const room = rooms.find(r => r.id === currentRoomId);
                 if (room) {
-                    renderAppliances(room.appliances, room.name);
+                    renderAppliances(room.appliances, room.name, rooms);
                 } else {
                     currentRoomId = null;
                     document.getElementById('rooms-view').classList.remove('hidden');
@@ -176,7 +176,7 @@
         }
     };
     
-    const renderAppliances = (appliances, roomName) => {
+    const renderAppliances = (appliances, roomName, allRooms) => {
         const container = document.getElementById('appliance-container');
         container.innerHTML = '';
         const appliancesHeading = document.getElementById('appliances-heading');
@@ -207,7 +207,7 @@
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Timer" onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-clock text-gray-400"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}', '${appliance.name}', '${appliance.relay_number}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
                             </button>
                         </div>
