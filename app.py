@@ -352,53 +352,6 @@ def set_lock():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/get-rooms-and-appliances', methods=['GET'])
-@login_required
-def get_rooms_and_appliances():
-    user_data = get_user_data()
-    return jsonify(user_data['rooms']), 200
-
-@app.route('/api/add-room', methods=['POST'])
-@login_required
-def add_room():
-    try:
-        room_name = request.json['name']
-        user_data = get_user_data()
-        new_room_id = str(len(user_data['rooms']) + 1)
-        user_data['rooms'].append({"id": new_room_id, "name": room_name, "appliances": []})
-        save_user_data(user_data)
-        return jsonify({"status": "success", "room_id": new_room_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/add-appliance', methods=['POST'])
-@login_required
-def add_appliance():
-    try:
-        room_id = request.json['room_id']
-        appliance_name = request.json['name']
-        relay_number = request.json['relay_number']
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-            
-        new_appliance_id = str(len(room['appliances']) + 1)
-        room['appliances'].append({
-            "id": new_appliance_id,
-            "name": appliance_name,
-            "state": False,
-            "locked": False,
-            "timer": None,
-            "relay_number": int(relay_number)
-        })
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/api/update-appliance-settings', methods=['POST'])
 @login_required
 def update_appliance_settings():
@@ -429,6 +382,7 @@ def update_appliance_settings():
             # Remove from original room
             original_room['appliances'].remove(appliance)
             # Add to new room
+            appliance['id'] = str(len(target_room['appliances']) + 1)
             target_room['appliances'].append(appliance)
         
         # Update appliance details
@@ -562,13 +516,12 @@ def add_appliance():
         return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
+        
 @app.route('/api/get-analytics', methods=['GET'])
 @login_required
 def get_analytics():
     data = load_analytics_data()
     
-    # Calculate different time ranges for the chart data
     now = datetime.now()
     last_day = [entry for entry in data if datetime.strptime(entry['date'], '%Y-%m-%d') >= now - timedelta(days=1)]
     last_month = [entry for entry in data if datetime.strptime(entry['date'], '%Y-%m-%d') >= now - timedelta(days=30)]
