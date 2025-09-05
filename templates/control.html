@@ -754,6 +754,87 @@
 
     window.onload = () => {
         fetchRoomsAndAppliances();
+        // Add event listeners for modals and forms
+        document.getElementById('add-room-btn').addEventListener('click', () => {
+            document.getElementById('add-room-modal').classList.remove('hidden');
+        });
+        document.getElementById('cancel-room-btn').addEventListener('click', () => {
+            document.getElementById('add-room-modal').classList.add('hidden');
+        });
+        document.getElementById('add-room-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const roomName = document.getElementById('new-room-name').value;
+            const response = await fetch('/api/add-room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: roomName })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                document.getElementById('add-room-modal').classList.add('hidden');
+                fetchRoomsAndAppliances();
+                showNotification('Room added successfully!', 'on');
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        });
+        document.getElementById('add-appliance-btn').addEventListener('click', () => {
+            document.getElementById('add-appliance-modal').classList.remove('hidden');
+        });
+        document.getElementById('cancel-appliance-btn').addEventListener('click', () => {
+            document.getElementById('add-appliance-modal').classList.add('hidden');
+        });
+        document.getElementById('add-appliance-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const applianceName = document.getElementById('new-appliance-name').value;
+            const relayNumber = document.getElementById('new-appliance-relay').value;
+            const response = await fetch('/api/add-appliance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: currentRoomId, name: applianceName, relay_number: relayNumber })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                document.getElementById('add-appliance-modal').classList.add('hidden');
+                fetchRoomsAndAppliances();
+                showNotification('Appliance added successfully!', 'on');
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        });
+        document.getElementById('cancel-appliance-settings-btn').addEventListener('click', () => {
+            document.getElementById('settings-appliance-modal').classList.add('hidden');
+        });
+        document.getElementById('settings-appliance-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const roomId = document.getElementById('edit-room-id').value;
+            const applianceId = document.getElementById('edit-appliance-id').value;
+            const newName = document.getElementById('edit-appliance-name').value;
+            const newRelay = document.getElementById('edit-appliance-relay').value;
+            const newRoomId = document.getElementById('edit-room-selector').value;
+            
+            try {
+                const response = await fetch('/api/update-appliance-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay, new_room_id: newRoomId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Appliance settings updated!', 'on');
+                    document.getElementById('settings-appliance-modal').classList.add('hidden');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to save settings.', 'off');
+            }
+        });
+        document.getElementById('cancel-timer-btn').addEventListener('click', () => {
+            document.getElementById('timer-modal').classList.add('hidden');
+        });
     };
 </script>
 {% endblock %}
