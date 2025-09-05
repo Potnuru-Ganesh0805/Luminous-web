@@ -24,21 +24,20 @@
     
     <!-- Appliance View -->
     <div id="appliances-view" class="hidden transition-transform duration-500">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex items-center justify-between mb-4">
             <button id="back-to-rooms-btn" class="bg-gray-400 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-500 transition-colors">
                 <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
             </button>
+            <h2 class="text-3xl font-bold text-text-card-foreground flex-grow text-center" id="appliances-heading"></h2>
+            
         </div>
-        <div class="text-center mb-4">
-            <h2 class="text-3xl font-bold text-text-card-foreground mb-2" id="appliances-heading"></h2>
-            <div class="flex justify-center space-x-4">
-                <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-camera mr-2"></i>Open Webcam
-                </button>
-                <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-eye mr-2"></i>Start Monitoring
-                </button>
-            </div>
+        <div class="flex justify-center space-x-4 mb-4">
+            <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                <i class="fas fa-camera mr-2"></i>Open Webcam
+            </button>
+            <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                <i class="fas fa-eye mr-2"></i>Start Monitoring
+            </button>
         </div>
 
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -87,23 +86,26 @@
             <form id="settings-appliance-form">
                 <input type="hidden" id="edit-room-id">
                 <input type="hidden" id="edit-appliance-id">
-                <div class="space-y-4">
-                    <div>
-                        <label for="edit-appliance-name" class="block text-text-card-foreground mb-2">Appliance Name:</label>
-                        <input type="text" id="edit-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="block text-text-card-foreground">Change Room:</label>
-                        <select id="change-room-selector" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none"></select>
-                    </div>
+                <label for="edit-appliance-name" class="block text-text-card-foreground mb-2">Appliance Name:</label>
+                <input type="text" id="edit-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                
+                <div class="mt-4">
+                    <label for="edit-room-selector" class="block text-text-card-foreground mb-2">Change Room:</label>
+                    <select id="edit-room-selector" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none">
+                        <!-- Options will be populated by JS -->
+                    </select>
+                </div>
+
+                <div class="mt-4">
                     <div class="advanced-settings-toggle cursor-pointer font-semibold text-secondary-accent hover:underline">
                         Advanced Settings <i class="fas fa-caret-down"></i>
                     </div>
                     <div id="advanced-settings" class="hidden pt-2 border-t mt-2">
-                        <label for="edit-appliance-relay" class="block text-text-card-foreground mb-2 mt-2">Relay Number (1-4):</label>
+                        <label for="edit-appliance-relay" class="block text-text-card-foreground mb-2">Relay Number (1-4):</label>
                         <input type="number" id="edit-appliance-relay" name="relay" min="1" max="4" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
                     </div>
                 </div>
+
                 <div class="flex justify-end space-x-4 mt-6">
                     <button type="button" id="cancel-settings-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
                     <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors">Save</button>
@@ -210,13 +212,27 @@
             container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
         }
     };
+
+    const updateRoomSelector = (rooms, currentRoomId) => {
+        const selector = document.getElementById('edit-room-selector');
+        selector.innerHTML = '';
+        rooms.forEach(room => {
+            const option = document.createElement('option');
+            option.value = room.id;
+            option.textContent = room.name;
+            if (room.id === currentRoomId) {
+                option.selected = true;
+            }
+            selector.appendChild(option);
+        });
+    };
     
     const renderAppliances = (appliances, roomName, allRooms) => {
         const container = document.getElementById('appliance-container');
         container.innerHTML = '';
         const appliancesHeading = document.getElementById('appliances-heading');
         if (appliancesHeading) {
-            appliancesHeading.textContent = `${roomName}`;
+            appliancesHeading.textContent = roomName;
         }
         document.getElementById('rooms-view').classList.add('hidden');
         document.getElementById('appliances-view').classList.remove('hidden');
@@ -232,8 +248,12 @@
 
                 let timerDisplay = '';
                 if (appliance.timer) {
-                    const timeLeft = Math.floor((appliance.timer - Date.now() / 1000) / 60);
-                    timerDisplay = `<span class="absolute top-2 right-2 text-xs font-semibold text-primary-accent">Timer: ${timeLeft} min</span>`;
+                    const timeLeft = Math.floor((appliance.timer - Date.now() / 1000));
+                    if (timeLeft > 0) {
+                        const minutes = Math.floor(timeLeft / 60);
+                        const seconds = timeLeft % 60;
+                        timerDisplay = `<span class="absolute top-2 right-2 text-xs font-semibold text-primary-accent">Timer: ${minutes}m ${seconds}s</span>`;
+                    }
                 }
 
                 applianceCard.innerHTML = `
@@ -248,7 +268,7 @@
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Timer" onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-clock text-gray-400"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}', '${appliance.name}', '${appliance.relay_number}', '${roomName}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
                             </button>
                         </div>
@@ -270,6 +290,7 @@
                         nameInput.focus();
                     }
                 });
+                 // Re-apply event listeners for in-place editing
                 nameInput.addEventListener('blur', (e) => saveApplianceName(e.target));
                 nameInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -456,8 +477,27 @@
             document.getElementById('edit-room-id').value = roomId;
             document.getElementById('edit-appliance-id').value = applianceId;
             document.getElementById('edit-appliance-name').value = appliance.name;
-            document.getElementById('edit-appliance-relay').value = appliance.relay_number;
             
+            const roomSelector = document.getElementById('edit-room-selector');
+            roomSelector.innerHTML = '';
+            rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = room.name;
+                if (room.id === roomId) {
+                    option.selected = true;
+                }
+                roomSelector.appendChild(option);
+            });
+            
+            // Advanced settings toggle
+            const advancedSettingsToggle = document.querySelector('.advanced-settings-toggle');
+            const advancedSettings = document.getElementById('advanced-settings');
+            advancedSettingsToggle.onclick = () => {
+                advancedSettings.classList.toggle('hidden');
+                document.getElementById('edit-appliance-relay').value = appliance.relay_number;
+            };
+
             document.getElementById('settings-appliance-modal').classList.remove('hidden');
         } catch (error) {
             console.error(error);
@@ -475,12 +515,13 @@
         const applianceId = document.getElementById('edit-appliance-id').value;
         const newName = document.getElementById('edit-appliance-name').value;
         const newRelay = document.getElementById('edit-appliance-relay').value;
+        const newRoomId = document.getElementById('edit-room-selector').value;
         
         try {
             const response = await fetch('/api/update-appliance-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay })
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay, new_room_id: newRoomId })
             });
             const result = await response.json();
             if (response.ok) {
@@ -495,6 +536,50 @@
             showNotification('Failed to save settings.', 'off');
         }
     });
+    
+    const openTimerModal = async (roomId, applianceId) => {
+        document.getElementById('timer-room-id').value = roomId;
+        document.getElementById('timer-appliance-id').value = applianceId;
+        document.getElementById('timer-modal').classList.remove('hidden');
+    };
+    
+    document.getElementById('cancel-timer-btn').addEventListener('click', () => {
+        document.getElementById('timer-modal').classList.add('hidden');
+    });
+
+    document.getElementById('timer-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const roomId = document.getElementById('timer-room-id').value;
+        const applianceId = document.getElementById('timer-appliance-id').value;
+        const durationMinutes = document.getElementById('timer-duration').value;
+        
+        await setTimer(roomId, applianceId, durationMinutes);
+        document.getElementById('timer-modal').classList.add('hidden');
+    });
+
+    const saveNewRoomOrder = async (newOrder) => {
+        try {
+            await fetch('/api/save-room-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: newOrder })
+            });
+        } catch (error) {
+            console.error("Failed to save new room order:", error);
+        }
+    };
+    
+    const saveNewApplianceOrder = async (roomId, newOrder) => {
+        try {
+            await fetch('/api/save-appliance-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, order: newOrder })
+            });
+        } catch (error) {
+            console.error("Failed to save new appliance order:", error);
+        }
+    };
 
     document.getElementById('back-to-rooms-btn').addEventListener('click', () => {
         currentRoomId = null;
