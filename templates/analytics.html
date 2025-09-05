@@ -35,36 +35,36 @@
     const API_BASE_URL = window.location.origin;
     let consumptionChart;
 
-    const createChart = (data, label, type, unit) => {
+    const createChart = (labels, barData, lineData, label, unit) => {
         const ctx = document.getElementById('consumption-chart').getContext('2d');
         if (consumptionChart) {
             consumptionChart.destroy();
         }
         
-        let datasetConfig = {
-            label: label,
-            data: Object.values(data),
-            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-accent-light'),
-            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-light'),
-            fill: false,
-            tension: 0.3,
-            type: 'bar',
-        };
-
-        if (type === 'line') {
-             datasetConfig = {
-                ...datasetConfig,
-                type: 'line',
-                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                fill: true,
-                borderColor: 'rgb(59, 130, 246)',
-            };
-        }
+        const chartColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-light').trim();
+        const chartColorDark = getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-dark').trim();
+        const borderColor = document.documentElement.classList.contains('dark') ? chartColorDark : chartColor;
 
         consumptionChart = new Chart(ctx, {
             data: {
-                labels: Object.keys(data),
-                datasets: [datasetConfig]
+                labels: labels,
+                datasets: [{
+                    label: 'Consumption',
+                    data: barData,
+                    borderColor: borderColor,
+                    backgroundColor: borderColor,
+                    type: 'bar',
+                    order: 2,
+                    borderRadius: 5,
+                }, {
+                    label: 'Trend',
+                    data: lineData,
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-accent-light').trim(),
+                    backgroundColor: 'transparent',
+                    type: 'line',
+                    order: 1,
+                    tension: 0.4,
+                }]
             },
             options: {
                 responsive: true,
@@ -76,19 +76,19 @@
                 scales: {
                     x: {
                         grid: {
-                            color: 'rgba(209, 213, 219, 0.2)',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color-light').trim(),
                         },
                         ticks: {
-                            color: 'rgb(156, 163, 175)'
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted-foreground-light').trim(),
                         }
                     },
                     y: {
                         beginAtZero: true,
                         grid: {
-                            color: 'rgba(209, 213, 219, 0.2)',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color-light').trim(),
                         },
                         ticks: {
-                            color: 'rgb(156, 163, 175)',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted-foreground-light').trim(),
                             callback: function(value) {
                                 return value + ` ${unit}`;
                             }
@@ -115,15 +115,15 @@
         const statsContainer = document.getElementById('analytics-stats');
         statsContainer.innerHTML = `
             <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
-                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Highest Usage</h3>
+                <h3 class="text-lg font-semibold text-text-card-foreground">Highest Usage</h3>
                 <p class="text-3xl font-bold text-primary-accent">${stats.highest_usage.toFixed(2)} kWh</p>
             </div>
             <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
-                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Average Usage</h3>
+                <h3 class="text-lg font-semibold text-text-card-foreground">Average Usage</h3>
                 <p class="text-3xl font-bold text-primary-accent">${stats.average_usage.toFixed(2)} kWh</p>
             </div>
             <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
-                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Estimated Savings</h3>
+                <h3 class="text-lg font-semibold text-text-card-foreground">Estimated Savings</h3>
                 <p class="text-3xl font-bold text-primary-accent">${stats.savings.toFixed(2)} kWh</p>
             </div>
         `;
@@ -142,18 +142,21 @@
 
         hourlyBtn.addEventListener('click', () => {
             setActive(hourlyBtn);
-            createChart(data.hourly, 'Hourly Consumption', 'bar', 'kWh');
+            createChart(Object.keys(data.hourly), Object.values(data.hourly), Object.values(data.hourly), 'Hourly Consumption', 'kWh');
         });
 
         dailyBtn.addEventListener('click', () => {
             setActive(dailyBtn);
-            createChart(data.daily, 'Daily Consumption', 'bar', 'kWh');
+            createChart(Object.keys(data.daily), Object.values(data.daily), Object.values(data.daily), 'Daily Consumption', 'kWh');
         });
 
         monthlyBtn.addEventListener('click', () => {
             setActive(monthlyBtn);
-            createChart(data.monthly, 'Monthly Consumption', 'bar', 'kWh');
+            createChart(Object.keys(data.monthly), Object.values(data.monthly), Object.values(data.monthly), 'Monthly Consumption', 'kWh');
         });
+
+        // Set initial chart
+        createChart(Object.keys(data.hourly), Object.values(data.hourly), Object.values(data.hourly), 'Hourly Consumption', 'kWh');
     };
 
     window.onload = async () => {
@@ -161,7 +164,6 @@
         if (data) {
             updateStatsCards(data.stats);
             setupChartControls(data);
-            createChart(data.hourly, 'Hourly Consumption', 'bar', 'kWh');
         }
     };
 </script>
