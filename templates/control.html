@@ -28,24 +28,26 @@
             <button id="back-to-rooms-btn" class="bg-gray-400 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-500 transition-colors">
                 <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
             </button>
-            <div class="flex items-center space-x-4">
-                <h2 class="text-2xl font-bold text-text-card-foreground" id="appliances-heading"></h2>
+            <div class="flex-grow flex justify-center">
+                 <h2 class="text-2xl font-bold text-text-card-foreground" id="appliances-heading"></h2>
             </div>
-            <div class="flex items-center space-x-4">
-                <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+            
+        </div>
+        <div class="flex justify-center space-x-4 mb-4">
+             <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
                     <i class="fas fa-camera mr-2"></i>Open Webcam
                 </button>
                 <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
                     <i class="fas fa-eye mr-2"></i>Start Monitoring
                 </button>
-                <button id="add-appliance-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-plus-circle mr-2"></i>Add Appliance
-                </button>
-            </div>
         </div>
+
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Appliance cards will be dynamically inserted here -->
         </div>
+         <button id="add-appliance-btn" class="fixed bottom-8 right-8 bg-secondary-accent text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-opacity-80 transition-colors">
+            <i class="fas fa-plus mr-2"></i> Add Appliance
+        </button>
     </div>
 
 
@@ -79,7 +81,7 @@
             </form>
         </div>
     </div>
-
+    
     <div id="settings-appliance-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Edit Appliance Settings</h3>
@@ -97,8 +99,26 @@
             </form>
         </div>
     </div>
+
+    <!-- Timer Modal -->
+    <div id="timer-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-card p-6 rounded-lg shadow-xl w-80">
+            <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Set Timer</h3>
+            <form id="timer-form">
+                <input type="hidden" id="timer-room-id">
+                <input type="hidden" id="timer-appliance-id">
+                <label for="timer-duration" class="block text-text-card-foreground mb-2">Duration (minutes):</label>
+                <input type="number" id="timer-duration" min="1" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancel-timer-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors">Set Timer</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 <script>
     let currentRoomId = null;
 
@@ -133,6 +153,7 @@
             rooms.forEach(room => {
                 const roomCard = document.createElement('div');
                 roomCard.setAttribute('data-slot', 'card');
+                roomCard.setAttribute('data-id', room.id);
                 roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all cursor-pointer hover:scale-105 transform";
                 roomCard.onclick = () => {
                     currentRoomId = room.id;
@@ -141,17 +162,26 @@
                 roomCard.innerHTML = `<h3 class="text-xl font-bold">${room.name}</h3><p class="text-gray-500">${room.appliances.length} Appliances</p>`;
                 container.appendChild(roomCard);
             });
+            // Make rooms sortable
+            new Sortable(container, {
+                animation: 150,
+                ghostClass: 'bg-gray-300 dark:bg-gray-600',
+                onEnd: async (evt) => {
+                    const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                    await saveNewRoomOrder(newOrder);
+                }
+            });
         } else {
             container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
         }
     };
-
+    
     const renderAppliances = (appliances, roomName) => {
         const container = document.getElementById('appliance-container');
         container.innerHTML = '';
         const appliancesHeading = document.getElementById('appliances-heading');
         if (appliancesHeading) {
-            appliancesHeading.textContent = `Appliances in ${roomName}`;
+            appliancesHeading.textContent = `${roomName} Appliances`;
         }
         document.getElementById('rooms-view').classList.add('hidden');
         document.getElementById('appliances-view').classList.remove('hidden');
@@ -163,6 +193,7 @@
                 
                 const applianceCard = document.createElement('div');
                 applianceCard.setAttribute('data-slot', 'card');
+                applianceCard.setAttribute('data-id', appliance.id);
                 applianceCard.className = "bg-card text-card-foreground rounded-xl border py-6 px-6 shadow-sm transition-all flex flex-col items-stretch";
                 applianceCard.innerHTML = `
                     <div class="flex items-center justify-between mb-4">
@@ -172,6 +203,9 @@
                         <div class="flex items-center space-x-2">
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Manual Override" onclick="toggleLock('${currentRoomId}', '${appliance.id}')">
                                 <i id="lock-icon-${appliance.id}" class="h-4 w-4 fas ${is_locked ? 'fa-lock text-red-500' : 'fa-unlock text-gray-400'}"></i>
+                            </button>
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Timer" onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
+                                <i class="h-4 w-4 fas fa-clock text-gray-400"></i>
                             </button>
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
@@ -195,6 +229,13 @@
                         nameInput.focus();
                     }
                 });
+                 // Re-apply event listeners for in-place editing
+                nameInput.addEventListener('blur', (e) => saveApplianceName(e.target));
+                nameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.target.blur();
+                    }
+                });
 
                 const toggleBtn = applianceCard.querySelector('.toggle-switch-button');
                 toggleBtn.onclick = () => {
@@ -203,6 +244,15 @@
                         sendApplianceState(currentRoomId, appliance.id, newState);
                     }
                 };
+            });
+            // Make appliances sortable
+             new Sortable(container, {
+                animation: 150,
+                ghostClass: 'bg-gray-300 dark:bg-gray-600',
+                onEnd: async (evt) => {
+                    const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                    await saveNewApplianceOrder(currentRoomId, newOrder);
+                }
             });
         } else {
             container.innerHTML = `<p class="text-center text-gray-500">No appliances in this room yet. Click "Add Appliance" to get started!</p>`;
@@ -231,7 +281,7 @@
     };
 
     const saveApplianceName = async (inputElement) => {
-        const roomId = inputElement.dataset.roomId;
+        const roomId = currentRoomId;
         const applianceId = inputElement.dataset.applianceId;
         const newName = inputElement.value;
 
@@ -355,6 +405,55 @@
             showNotification('Appliance added successfully!', 'on');
         } else {
             showNotification(`Error: ${result.message}`, 'off');
+        }
+    });
+    
+    const openApplianceSettings = async (roomId, applianceId) => {
+        try {
+            const response = await fetch('/api/get-rooms-and-appliances');
+            const rooms = await response.json();
+            const appliance = rooms.find(r => r.id === roomId).appliances.find(a => a.id === applianceId);
+            
+            document.getElementById('edit-room-id').value = roomId;
+            document.getElementById('edit-appliance-id').value = applianceId;
+            document.getElementById('edit-appliance-name').value = appliance.name;
+            document.getElementById('edit-appliance-relay').value = appliance.relay_number;
+            
+            document.getElementById('settings-appliance-modal').classList.remove('hidden');
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to open settings.', 'off');
+        }
+    };
+    
+    document.getElementById('cancel-settings-btn').addEventListener('click', () => {
+        document.getElementById('settings-appliance-modal').classList.add('hidden');
+    });
+
+    document.getElementById('settings-appliance-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const roomId = document.getElementById('edit-room-id').value;
+        const applianceId = document.getElementById('edit-appliance-id').value;
+        const newName = document.getElementById('edit-appliance-name').value;
+        const newRelay = document.getElementById('edit-appliance-relay').value;
+        
+        try {
+            const response = await fetch('/api/update-appliance-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification('Appliance settings updated!', 'on');
+                document.getElementById('settings-appliance-modal').classList.add('hidden');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to save settings.', 'off');
         }
     });
 
