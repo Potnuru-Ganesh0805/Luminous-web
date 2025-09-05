@@ -334,6 +334,9 @@
                             <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
                             </button>
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Cancel Timer" onclick="cancelTimer('${currentRoomId}', '${appliance.id}')">
+                                <i class="h-4 w-4 fas fa-times-circle text-red-400"></i>
+                            </button>
                         </div>
                     </div>
                     <div data-slot="card-content" class="flex-grow flex items-center justify-between">
@@ -706,6 +709,42 @@
             renderAppliances(room.appliances, room.name);
         }
     };
+
+    const cancelTimer = async (roomId, applianceId) => {
+        const confirmed = window.confirm("Are you sure you want to cancel the timer?");
+        if (confirmed) {
+            try {
+                const response = await fetch('/api/set-timer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: null })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Timer cancelled.', 'on');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to cancel timer.', 'off');
+            }
+        }
+    };
+    
+    // Add event listener for AI control switch in the room settings modal
+    document.getElementById('ai-control-switch').addEventListener('click', (e) => {
+        const switchBtn = e.currentTarget;
+        const isChecked = switchBtn.dataset.state === 'checked';
+        if (isChecked) {
+            switchBtn.dataset.state = 'off';
+            switchBtn.classList.remove('data-[state=checked]');
+        } else {
+            switchBtn.dataset.state = 'checked';
+            switchBtn.classList.add('data-[state=checked]');
+        }
+    });
 
     window.onload = () => {
         fetchRoomsAndAppliances();
