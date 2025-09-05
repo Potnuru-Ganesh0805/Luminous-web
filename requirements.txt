@@ -1,2 +1,7 @@
 flask
 flask-cors
+Flask
+Flask-Login
+paho-mqtt
+werkzeug
+gunicorn
