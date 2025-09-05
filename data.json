@@ -1,0 +1,53 @@
+{
+    "1": {
+        "user_settings": {
+            "name": "Dummy User",
+            "email": "dummy@example.com",
+            "mobile": "123-456-7890",
+            "channel": "email",
+            "theme": "dark"
+        },
+        "rooms": [
+            {
+                "id": "1",
+                "name": "Living Room",
+                "appliances": [
+                    {
+                        "id": "1",
+                        "name": "Lamp",
+                        "state": false,
+                        "locked": false,
+                        "timer": null
+                    },
+                    {
+                        "id": "2",
+                        "name": "TV",
+                        "state": false,
+                        "locked": false,
+                        "timer": null
+                    }
+                ]
+            },
+            {
+                "id": "2",
+                "name": "Kitchen",
+                "appliances": [
+                    {
+                        "id": "1",
+                        "name": "Coffee Maker",
+                        "state": false,
+                        "locked": false,
+                        "timer": null
+                    },
+                    {
+                        "id": "2",
+                        "name": "Microwave",
+                        "state": false,
+                        "locked": false,
+                        "timer": null
+                    }
+                ]
+            }
+        ]
+    }
+}
