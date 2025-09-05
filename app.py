@@ -175,7 +175,16 @@ def signup():
                 "name": username,
                 "email": "", "mobile": "", "channel": "email", "theme": "dark"
             },
-            "rooms": []
+            "rooms": [{
+                "id": "1",
+                "name": "Hall",
+                "appliances": [
+                    {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None},
+                    {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None},
+                    {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None},
+                    {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None}
+                ]
+            }]
         }
         save_data(data)
 
