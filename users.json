@@ -1,0 +1,7 @@
+[
+    {
+        "id": "1",
+        "username": "dummy_user",
+        "password_hash": "pbkdf2:sha256:600000$EypD0yVvT9B5N3mS$1e5d7a8d5e1e3e2b2c4c4a4e1e3e2b2c4c4a4e1e3e2b2c4c4a4e1e3e2b2c4c4a"
+    }
+]
