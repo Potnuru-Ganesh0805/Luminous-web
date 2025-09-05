@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Control Panel{% endblock %}
+
+{% block content %}
+<div class="container mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold mb-2 text-blue-500">Relay Control Panel</h1>
+        <p class="text-gray-500 dark:text-gray-400">Manage your rooms and appliances.</p>
+    </div>
+
+    <!-- Room Management Section -->
+    <div class="mb-8 p-6 bg-card rounded-xl border shadow-sm">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Rooms</h2>
+            <button id="add-room-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors">
+                <i class="fas fa-plus-circle mr-2"></i>Add Room
+            </button>
+        </div>
+        <div id="room-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Room cards will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <!-- Appliance Management Section (Hidden by default) -->
+    <div id="appliance-section" class="hidden mb-8 p-6 bg-card rounded-xl border shadow-sm">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200" id="appliances-heading">Appliances in [Room Name]</h2>
+            <button id="add-appliance-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors">
+                <i class="fas fa-plus-circle mr-2"></i>Add Appliance
+            </button>
+        </div>
+        <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Appliance cards will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <!-- Modals for adding rooms and appliances -->
+    <div id="add-room-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-80">
+            <h3 class="text-xl font-bold mb-4">Add New Room</h3>
+            <form id="add-room-form">
+                <label for="new-room-name" class="block text-gray-700 dark:text-gray-300 mb-2">Room Name:</label>
+                <input type="text" id="new-room-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancel-room-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-appliance-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-80">
+            <h3 class="text-xl font-bold mb-4">Add New Appliance</h3>
+            <form id="add-appliance-form">
+                <label for="new-appliance-name" class="block text-gray-700 dark:text-gray-300 mb-2">Appliance Name:</label>
+                <input type="text" id="new-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancel-appliance-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentRoomId = null;
+
+    const fetchRoomsAndAppliances = async () => {
+        try {
+            const response = await fetch('/api/get-rooms-and-appliances');
+            if (!response.ok) throw new Error('Failed to fetch rooms and appliances');
+            const rooms = await response.json();
+            renderRooms(rooms);
+            if (currentRoomId) {
+                const room = rooms.find(r => r.id === currentRoomId);
+                if (room) {
+                    renderAppliances(room.appliances, room.name);
+                } else {
+                    currentRoomId = null;
+                    document.getElementById('appliance-section').classList.add('hidden');
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to load data.', 'off');
+        }
+    };
+
+    const renderRooms = (rooms) => {
+        const container = document.getElementById('room-container');
+        container.innerHTML = '';
+        rooms.forEach(room => {
+            const roomCard = document.createElement('div');
+            roomCard.setAttribute('data-slot', 'card');
+            roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all cursor-pointer hover:scale-105 transform";
+            roomCard.onclick = () => {
+                currentRoomId = room.id;
+                renderAppliances(room.appliances, room.name);
+            };
+            roomCard.innerHTML = `<h3 class="text-xl font-bold">${room.name}</h3><p class="text-gray-500">${room.appliances.length} Appliances</p>`;
+            container.appendChild(roomCard);
+        });
+    };
+
+    const renderAppliances = (appliances, roomName) => {
+        const container = document.getElementById('appliance-container');
+        container.innerHTML = '';
+        document.getElementById('appliances-heading').textContent = `Appliances in ${roomName}`;
+        document.getElementById('appliance-section').classList.remove('hidden');
+
+        appliances.forEach(appliance => {
+            const applianceCard = document.createElement('div');
+            applianceCard.setAttribute('data-slot', 'card');
+            applianceCard.className = "bg-card text-card-foreground rounded-xl border py-6 px-6 shadow-sm transition-all flex flex-col items-stretch";
+            applianceCard.innerHTML = `
+                <div class="flex items-center justify-between mb-4">
+                    <div data-slot="card-title" class="leading-none font-semibold cursor-pointer pr-2">
+                        <input type="text" value="${appliance.name}" class="w-full bg-transparent font-medium focus:outline-none focus:border-b focus:border-gray-400 dark:text-gray-200" disabled>
+                    </div>
+                    <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Manual Override" onclick="toggleLock('${currentRoomId}', '${appliance.id}')">
+                        <i id="lock-icon-${appliance.id}" class="h-4 w-4 fas ${appliance.locked ? 'fa-lock text-red-500' : 'fa-unlock text-gray-400'}"></i>
+                    </button>
+                </div>
+                <div data-slot="card-content" class="flex-grow flex items-center justify-between">
+                    <i class="fas fa-lightbulb text-2xl text-gray-400 dark:text-gray-600 transition-colors"></i>
+                    <button type="button" role="switch" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" data-state="${appliance.state}" class="toggle-switch-button ${appliance.state ? 'data-[state=checked]' : 'data-[state=unchecked]'}">
+                        <span data-slot="switch-thumb" class="bg-white pointer-events-none block h-5 w-5 rounded-full ring-0 transition-transform"></span>
+                    </button>
+                </div>
+            `;
+            container.appendChild(applianceCard);
+
+            // Re-apply event listeners
+            const toggleBtn = applianceCard.querySelector('.toggle-switch-button');
+            toggleBtn.onclick = () => {
+                const newState = !appliance.state;
+                sendApplianceState(currentRoomId, appliance.id, newState);
+            };
+        });
+    };
+    
+    // API Callbacks
+    const sendApplianceState = async (roomId, applianceId, state) => {
+        try {
+            const response = await fetch('/api/set-appliance-state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, state: state })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification(`Appliance state changed to ${state ? 'ON' : 'OFF'}.`, state ? 'on' : 'off');
+                // The backend handles data persistence, so we just need to re-render
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to send command.', 'off');
+        }
+    };
+    
+    const toggleLock = async (roomId, applianceId) => {
+        const applianceData = (await fetchRoomsAndAppliances()).find(r => r.id === roomId).appliances.find(a => a.id === applianceId);
+        const newState = !applianceData.locked;
+        try {
+            const response = await fetch('/api/set-lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, locked: newState })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification(`Appliance is now ${newState ? 'locked' : 'unlocked'}.`, 'on');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to update lock state.', 'off');
+        }
+    };
+
+    // Modal and Form Handlers
+    document.getElementById('add-room-btn').addEventListener('click', () => {
+        document.getElementById('add-room-modal').classList.remove('hidden');
+    });
+    document.getElementById('cancel-room-btn').addEventListener('click', () => {
+        document.getElementById('add-room-modal').classList.add('hidden');
+    });
+    document.getElementById('add-room-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const roomName = document.getElementById('new-room-name').value;
+        const response = await fetch('/api/add-room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: roomName })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('add-room-modal').classList.add('hidden');
+            fetchRoomsAndAppliances();
+            showNotification('Room added successfully!', 'on');
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    });
+
+    document.getElementById('add-appliance-btn').addEventListener('click', () => {
+        document.getElementById('add-appliance-modal').classList.remove('hidden');
+    });
+    document.getElementById('cancel-appliance-btn').addEventListener('click', () => {
+        document.getElementById('add-appliance-modal').classList.add('hidden');
+    });
+    document.getElementById('add-appliance-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const applianceName = document.getElementById('new-appliance-name').value;
+        const response = await fetch('/api/add-appliance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: currentRoomId, name: applianceName })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('add-appliance-modal').classList.add('hidden');
+            fetchRoomsAndAppliances();
+            showNotification('Appliance added successfully!', 'on');
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    });
+
+    window.onload = () => {
+        fetchRoomsAndAppliances();
+    };
+</script>
+{% endblock %}
