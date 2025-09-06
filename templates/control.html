@@ -282,7 +282,8 @@
     const updateTimerDisplay = (card, appliance) => {
         const timerElement = card.querySelector('.timer-display');
         const cancelButton = card.querySelector('.cancel-timer-btn');
-        if (!timerElement || !cancelButton) return;
+        const toggleBtn = card.querySelector('.toggle-switch-button');
+        if (!timerElement || !cancelButton || !toggleBtn) return;
 
         clearInterval(timerIntervals[appliance.id]);
 
@@ -300,6 +301,8 @@
                     clearInterval(timerIntervals[appliance.id]);
                     cancelButton.classList.add('hidden');
                     sendApplianceState(currentRoomId, appliance.id, false); // Turn off the appliance
+                    toggleBtn.dataset.state = 'off';
+                    toggleBtn.classList.remove('data-[state=checked]');
                 }
             };
             update();
@@ -352,7 +355,7 @@
                     </div>
                     <div data-slot="card-content" class="flex-grow flex items-center justify-between">
                         <i class="fas fa-lightbulb text-2xl ${is_on ? 'text-primary-accent' : 'text-gray-400 dark:text-gray-600'} transition-colors"></i>
-                        <button type="button" role="switch" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" data-state="${is_on}" class="toggle-switch-button ${is_on ? 'data-[state=checked]' : 'data-[state=unchecked]'}" ${is_locked ? 'disabled' : ''}>
+                        <button type="button" role="switch" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" data-state="${is_on}" class="toggle-switch-button ${is_on ? 'data-[state=checked]' : 'data-[state=unchecked]'}">
                             <span data-slot="switch-thumb" class="bg-white pointer-events-none block h-5 w-5 rounded-full ring-0 transition-transform"></span>
                         </button>
                     </div>
@@ -362,10 +365,15 @@
 
                 const toggleBtn = applianceCard.querySelector('.toggle-switch-button');
                 toggleBtn.onclick = () => {
-                    if (!is_locked) {
-                        const newState = !is_on;
-                        sendApplianceState(currentRoomId, appliance.id, newState);
-                    }
+                     const currentState = toggleBtn.dataset.state === 'checked';
+                     const newState = !currentState;
+                     toggleBtn.dataset.state = newState ? 'checked' : 'off';
+                     if (newState) {
+                         toggleBtn.classList.add('data-[state=checked]');
+                     } else {
+                         toggleBtn.classList.remove('data-[state=checked]');
+                     }
+                     sendApplianceState(currentRoomId, appliance.id, newState);
                 };
                 updateTimerDisplay(applianceCard, appliance);
             });
