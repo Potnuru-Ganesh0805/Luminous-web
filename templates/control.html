@@ -261,6 +261,8 @@
     let timerIntervals = {};
     let allRoomsData = [];
 
+    // Save new room order to the backend
+
     const fetchRoomsAndAppliances = async () => {
         try {
             const response = await fetch('/api/get-rooms-and-appliances');
@@ -288,8 +290,6 @@
         }
     };
     
-    // Save new room order to the backend
-
     const renderRooms = (rooms) => {
         console.log('Rendering rooms:', rooms);
         const container = document.getElementById('room-container');
