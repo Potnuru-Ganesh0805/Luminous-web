@@ -16,6 +16,61 @@
         background-color: var(--bg-muted-dark);
         opacity: 0.5;
     }
+    /*
+     * Custom style for the new switch button
+     */
+    .custom-toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+    
+    .custom-toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: .4s;
+        transition: .4s;
+        border-radius: 34px;
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: .4s;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+        background-color: #2196F3;
+    }
+    
+    input:focus + .slider {
+        box-shadow: 0 0 1px #2196F3;
+    }
+    
+    input:checked + .slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+    }
 </style>
 <div class="container mx-auto">
     <div class="text-center mb-8">
@@ -355,24 +410,18 @@
                     </div>
                     <div data-slot="card-content" class="flex-grow flex items-center justify-between">
                         <i class="fas fa-lightbulb text-2xl ${is_on ? 'text-primary-accent' : 'text-gray-400 dark:text-gray-600'} transition-colors"></i>
-                        <button type="button" role="switch" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" data-state="${is_on}" class="toggle-switch-button ${is_on ? 'data-[state=checked]' : 'data-[state=unchecked]'}">
-                            <span data-slot="switch-thumb" class="bg-white pointer-events-none block h-5 w-5 rounded-full ring-0 transition-transform"></span>
-                        </button>
+                        <label class="custom-toggle-switch">
+                            <input type="checkbox" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" ${is_on ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
                     </div>
                     <span class="timer-display absolute bottom-2 left-2 text-xs font-semibold text-primary-accent hidden"></span>
                 `;
                 container.appendChild(applianceCard);
 
-                const toggleBtn = applianceCard.querySelector('.toggle-switch-button');
-                toggleBtn.onclick = () => {
-                     const currentState = toggleBtn.dataset.state === 'checked';
-                     const newState = !currentState;
-                     toggleBtn.dataset.state = newState ? 'checked' : 'off';
-                     if (newState) {
-                         toggleBtn.classList.add('data-[state=checked]');
-                     } else {
-                         toggleBtn.classList.remove('data-[state=checked]');
-                     }
+                const toggleInput = applianceCard.querySelector('input[type="checkbox"]');
+                toggleInput.onchange = () => {
+                     const newState = toggleInput.checked;
                      sendApplianceState(currentRoomId, appliance.id, newState);
                 };
                 updateTimerDisplay(applianceCard, appliance);
