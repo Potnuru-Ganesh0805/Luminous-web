@@ -298,7 +298,10 @@ def set_appliance_state():
         if mqtt_client:
             mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:{int(state)}")
         
-        return jsonify({"status": "success", "message": "Command sent."}), 200
+        action = "turned ON" if state else "turned OFF"
+        message = f"Appliance '{appliance['name']}' in room '{room['name']}' has been {action}."
+        
+        return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
