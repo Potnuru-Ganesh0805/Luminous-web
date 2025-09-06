@@ -268,7 +268,7 @@
             // Make rooms sortable
             new Sortable(container, {
                 animation: 150,
-                ghostClass: 'bg-gray-300 dark:bg-gray-600',
+                ghostClass: 'sortable-ghost',
                 onEnd: async (evt) => {
                     const newOrder = Array.from(container.children).map(child => child.dataset.id);
                     await saveNewRoomOrder(newOrder);
@@ -371,7 +371,7 @@
             });
             new Sortable(container, {
                 animation: 150,
-                ghostClass: 'bg-gray-300 dark:bg-gray-600',
+                ghostClass: 'sortable-ghost',
                 onEnd: async (evt) => {
                     const newOrder = Array.from(container.children).map(child => child.dataset.id);
                     await saveNewApplianceOrder(currentRoomId, newOrder);
