@@ -234,30 +234,6 @@
     };
     
     // Save new room order to the backend
-    const saveNewRoomOrder = async (newOrder) => {
-        try {
-            await fetch('/api/save-room-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: newOrder })
-            });
-        } catch (error) {
-            console.error("Failed to save new room order:", error);
-        }
-    };
-    
-    const saveNewApplianceOrder = async (roomId, newOrder) => {
-        try {
-            await fetch('/api/save-appliance-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, order: newOrder })
-            });
-        } catch (error) {
-            console.error("Failed to save new appliance order:", error);
-        }
-    };
-
     const renderRooms = (rooms) => {
         console.log('Rendering rooms:', rooms);
         const container = document.getElementById('room-container');
