@@ -283,9 +283,6 @@ def set_appliance_state():
         if not appliance:
             return jsonify({"status": "error", "message": "Appliance not found."}), 404
         
-        if appliance.get('locked', False):
-            return jsonify({"status": "error", "message": "Appliance is locked."}), 403
-
         appliance['state'] = state
         
         user_data['last_command'] = {
@@ -412,9 +409,6 @@ def set_timer():
         appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
         if not appliance:
             return jsonify({"status": "error", "message": "Appliance not found."}), 403
-        
-        if appliance.get('locked', False):
-            return jsonify({"status": "error", "message": "Appliance is locked."}), 403
         
         if timer_timestamp:
             appliance['state'] = True
