@@ -356,7 +356,7 @@
                     clearInterval(timerIntervals[appliance.id]);
                     cancelButton.classList.add('hidden');
                     sendApplianceState(currentRoomId, appliance.id, false); // Turn off the appliance
-                    toggleInput.checked = false;
+                    toggleInput.checked = false; // Visually update the switch
                 }
             };
             update();
@@ -498,7 +498,8 @@
             });
             const result = await response.json();
             if (response.ok) {
-                showNotification(`Appliance state changed to ${state ? 'ON' : 'OFF'}.`, state ? 'on' : 'off');
+                // Use the message from the server
+                showNotification(result.message, state ? 'on' : 'off');
                 fetchRoomsAndAppliances();
             } else {
                 showNotification(`Error: ${result.message}`, 'off');
