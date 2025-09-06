@@ -285,6 +285,10 @@ def set_appliance_state():
         
         appliance['state'] = state
         
+        # If the appliance is turned off, clear the timer
+        if not state:
+            appliance['timer'] = None
+        
         user_data['last_command'] = {
             "room_id": room_id,
             "appliance_id": appliance_id,
