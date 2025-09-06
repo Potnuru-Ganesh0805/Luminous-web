@@ -127,7 +127,8 @@ body {
     @apply text-gray-700 hover:bg-gray-300 dark:text-gray-300 dark:hover:bg-gray-700;
 }
 .nav-link.active {
-    @apply bg-primary-accent text-white hover:bg-opacity-80 dark:bg-primary-accent dark:hover:bg-opacity-80;
+    @apply bg-secondary-accent text-white hover:bg-secondary-accent dark:bg-secondary-accent dark:hover:bg-secondary-accent;
+    font-weight: bold;
 }
 
 /* Custom styles for the toggle switch (button) */
