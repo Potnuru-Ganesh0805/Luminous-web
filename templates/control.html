@@ -337,8 +337,8 @@
     const updateTimerDisplay = (card, appliance) => {
         const timerElement = card.querySelector('.timer-display');
         const cancelButton = card.querySelector('.cancel-timer-btn');
-        const toggleBtn = card.querySelector('.toggle-switch-button');
-        if (!timerElement || !cancelButton || !toggleBtn) return;
+        const toggleInput = card.querySelector('input[type="checkbox"]');
+        if (!timerElement || !cancelButton || !toggleInput) return;
 
         clearInterval(timerIntervals[appliance.id]);
 
@@ -356,8 +356,7 @@
                     clearInterval(timerIntervals[appliance.id]);
                     cancelButton.classList.add('hidden');
                     sendApplianceState(currentRoomId, appliance.id, false); // Turn off the appliance
-                    toggleBtn.dataset.state = 'off';
-                    toggleBtn.classList.remove('data-[state=checked]');
+                    toggleInput.checked = false;
                 }
             };
             update();
