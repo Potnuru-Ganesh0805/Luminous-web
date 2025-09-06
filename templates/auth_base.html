@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumino'US' | {% block title %}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='themes.js') }}"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen font-sans">
+    
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-[100] flex items-center justify-center transition-opacity duration-700 opacity-100">
+        <div class="loader-circle"></div>
+    </div>
+    
+    <main class="flex-grow">
+        <div id="notification-area" class="fixed bottom-4 right-4 z-50"></div>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <script>
+        const showNotification = (message, type) => {
+            const notificationArea = document.getElementById('notification-area');
+            const notification = document.createElement('div');
+            notification.className = `p-4 rounded-lg shadow-md text-white transition-opacity duration-300 ease-in-out mb-2 transform translate-y-full opacity-0 ${type === 'on' ? 'bg-green-600' : 'bg-red-600'}`;
+            notification.textContent = message;
+            notificationArea.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.remove('translate-y-full', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.classList.add('opacity-0');
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        };
+        
+        const hideLoadingScreen = () => {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 700);
+            }
+        };
+
+        window.addEventListener('load', () => {
+            hideLoadingScreen();
+        });
+    </script>
+</body>
+</html>
