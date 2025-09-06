@@ -100,7 +100,7 @@ def get_user_data():
     return data.get(current_user.id, {
         "user_settings": {
             "name": current_user.username,
-            "email": "", "mobile": "", "channel": "email", "theme": "dark"
+            "email": "", "mobile": "", "channel": "email", "theme": "light"
         },
         "rooms": []
     })
@@ -186,7 +186,7 @@ def signup():
         data[new_user_id] = {
             "user_settings": {
                 "name": username,
-                "email": "", "mobile": "", "channel": "email", "theme": "dark"
+                "email": "", "mobile": "", "channel": "email", "theme": "light"
             },
             "rooms": [{
                 "id": "1",
