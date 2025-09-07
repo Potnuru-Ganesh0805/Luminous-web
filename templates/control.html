@@ -279,6 +279,11 @@
             </div>
         </div>
     </div>
+
+    <!-- Webcam Container -->
+    <div id="webcam-container" class="hidden">
+        <video id="webcam-video" autoplay></video>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
@@ -764,9 +769,44 @@
     });
 
     // Placeholder function for the new buttons
-    const handleWebcam = () => showNotification("Opening webcam...", 'on');
-    const handleMonitoring = () => showNotification("Starting AI monitoring...", 'on');
+    const handleWebcam = async () => {
+        const webcamContainer = document.getElementById('webcam-container');
+        const webcamVideo = document.getElementById('webcam-video');
+        const webcamBtn = document.getElementById('open-webcam-btn');
+        const webcamIcon = webcamBtn.querySelector('i');
+        
+        if (webcamStream) {
+            // Close webcam
+            webcamStream.getTracks().forEach(track => track.stop());
+            webcamStream = null;
+            webcamContainer.classList.add('hidden');
+            webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
+            showNotification('Webcam turned off.', 'on');
+        } else {
+            // Open webcam
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamStream = stream;
+                webcamVideo.srcObject = stream;
+                webcamContainer.classList.remove('hidden');
+                webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
+                showNotification('Webcam turned on.', 'on');
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                showNotification('Failed to access webcam. Please check permissions.', 'off');
+            }
+        }
+    };
+
+    // Close webcam when navigating away
+    window.addEventListener('beforeunload', () => {
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => track.stop());
+        }
+    });
+
     document.getElementById('open-webcam-btn').addEventListener('click', handleWebcam);
+    const handleMonitoring = () => showNotification("Starting AI monitoring...", 'on');
     document.getElementById('start-monitoring-btn').addEventListener('click', handleMonitoring);
 
     const showAppliances = (roomId) => {
