@@ -283,11 +283,11 @@ def set_appliance_state():
         if not appliance:
             return jsonify({"status": "error", "message": "Appliance not found."}), 404
         
-        appliance['state'] = state
-        
-        # If the appliance is turned off, clear the timer
+        # Manually turning off an appliance should cancel any active timer
         if not state:
             appliance['timer'] = None
+
+        appliance['state'] = state
         
         user_data['last_command'] = {
             "room_id": room_id,
