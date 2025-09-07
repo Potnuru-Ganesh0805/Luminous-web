@@ -20,7 +20,6 @@ const closeWebcamBtn = document.getElementById('close-webcam-btn');
 const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
 
 // --- Utility Functions (Globally Available) ---
-// This is a simplified version of your showNotification, assuming it's in a base file.
 const showNotification = (message, type) => {
     const notificationArea = document.getElementById('notification-area');
     const notification = document.createElement('div');
@@ -451,15 +450,13 @@ document.getElementById('timer-form').addEventListener('submit', async (e) => {
     const roomId = document.getElementById('timer-room-id').value;
     const applianceId = document.getElementById('timer-appliance-id').value;
     
-    let timerDurationMinutes = 0;
     let timerTimestamp = null;
-
     const hours = parseInt(document.getElementById('timer-duration-hours').value) || 0;
     const minutes = parseInt(document.getElementById('timer-duration-minutes').value) || 0;
     const datetimeInput = document.getElementById('timer-datetime').value;
 
     if (hours > 0 || minutes > 0) {
-        timerDurationMinutes = hours * 60 + minutes;
+        const timerDurationMinutes = hours * 60 + minutes;
         if (timerDurationMinutes > 0) {
              timerTimestamp = Math.floor(Date.now() / 1000) + timerDurationMinutes * 60;
         }
@@ -892,10 +889,149 @@ const initModalsAndListeners = () => {
                 showNotification('Failed to cancel timer.', 'off');
             }
         }
-    };
+    });
     confirmCancelBtn.addEventListener('click', () => {
         confirmationModal.classList.add('hidden');
     });
+};
+
+const sendApplianceState = async (roomId, applianceId, state) => {
+    try {
+        const response = await fetch('/api/set-appliance-state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, state: state })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            showNotification(result.message, state ? 'on' : 'off');
+            fetchRoomsAndAppliances();
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    } catch (error) {
+        console.error(error);
+        showNotification('Failed to send command.', 'off');
+    }
+};
+
+const toggleLock = async (roomId, applianceId) => {
+    try {
+        const response = await fetch('/api/get-rooms-and-appliances');
+        const rooms = await response.json();
+        const appliance = rooms.find(r => r.id === roomId).appliances.find(a => a.id === applianceId);
+        const newState = !appliance.locked;
+
+        const lockResponse = await fetch('/api/set-lock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, locked: newState })
+        });
+        const result = await lockResponse.json();
+        if (lockResponse.ok) {
+            showNotification(`Appliance is now ${newState ? 'locked' : 'unlocked'}.`, 'on');
+            fetchRoomsAndAppliances();
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    } catch (error) {
+        console.error(error);
+        showNotification('Failed to update lock state.', 'off');
+    }
+};
+
+const toggleWebcam = async () => {
+    if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+        webcamCardContainer.classList.add('hidden');
+        webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
+        showNotification('Webcam turned off.', 'on');
+    } else {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            webcamStream = stream;
+            liveWebcamVideo.srcObject = webcamStream;
+            webcamCardContainer.classList.remove('hidden');
+            webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
+            showNotification('Webcam turned on.', 'on');
+        } catch (err) {
+            console.error("Error accessing webcam:", err);
+            showNotification('Failed to access webcam. Please check permissions.', 'off');
+        }
+    }
+};
+
+const toggleMonitoring = async () => {
+    if (isMonitoring) {
+        isMonitoring = false;
+        monitoringCard.classList.add('hidden');
+        monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
+        showNotification('AI monitoring stopped.', 'on');
+        if (monitoringIntervalId) {
+             clearTimeout(monitoringIntervalId);
+             monitoringIntervalId = null;
+        }
+        if (monitoringStream) {
+             monitoringStream.getTracks().forEach(track => track.stop());
+             monitoringStream = null;
+        }
+        if(currentRoomId) {
+            await fetch('/api/update-room-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
+            });
+        }
+    } else {
+        try {
+            if (!model) {
+                showNotification('AI model is not loaded yet. Please wait a moment.', 'off');
+                return;
+            }
+
+            const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
+            const parsedInterval = parseInt(interval);
+            if (isNaN(parsedInterval) || parsedInterval <= 0) {
+                showNotification('Invalid time interval. Monitoring not started.', 'off');
+                return;
+            }
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            monitoringStream = stream;
+            
+            if (!monitoringVideo) {
+               monitoringVideo = document.createElement('video');
+               monitoringVideo.style.display = 'none';
+               document.body.appendChild(monitoringVideo);
+            }
+            monitoringVideo.srcObject = monitoringStream;
+            monitoringVideo.play();
+            
+            isMonitoring = true;
+            monitoringCard.classList.remove('hidden');
+            monitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
+            showNotification('AI monitoring started.', 'on');
+            
+            if(currentRoomId) {
+                await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
+                });
+            }
+           
+            monitoringVideo.onloadedmetadata = () => {
+               monitoringInterval = parsedInterval * 1000;
+               detectHumans();
+           };
+
+        } catch (err) {
+            console.error("Error accessing webcam for monitoring:", err);
+            showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
+            return;
+        }
+    }
 };
 
 const showAppliances = (roomId) => {
@@ -906,8 +1042,209 @@ const showAppliances = (roomId) => {
     }
 };
 
-const initListeners = () => {
-    // Add event listener for AI control switch in the room settings modal
+const initModalsAndListeners = () => {
+    document.getElementById('add-room-btn').addEventListener('click', () => {
+        document.getElementById('add-room-modal').classList.remove('hidden');
+    });
+    document.getElementById('cancel-room-btn').addEventListener('click', () => {
+        document.getElementById('add-room-modal').classList.add('hidden');
+    });
+    document.getElementById('add-room-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const roomName = document.getElementById('new-room-name').value;
+        const response = await fetch('/api/add-room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: roomName })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('add-room-modal').classList.add('hidden');
+            fetchRoomsAndAppliances();
+            showNotification('Room added successfully!', 'on');
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    });
+
+    document.getElementById('add-appliance-btn').addEventListener('click', () => {
+        document.getElementById('add-appliance-modal').classList.remove('hidden');
+    });
+    document.getElementById('cancel-appliance-btn').addEventListener('click', () => {
+        document.getElementById('add-appliance-modal').classList.add('hidden');
+    });
+    document.getElementById('add-appliance-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const applianceName = document.getElementById('new-appliance-name').value;
+        const relayNumber = document.getElementById('new-appliance-relay').value;
+        const response = await fetch('/api/add-appliance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: currentRoomId, name: applianceName, relay_number: relayNumber })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('add-appliance-modal').classList.add('hidden');
+            fetchRoomsAndAppliances();
+            showNotification('Appliance added successfully!', 'on');
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    });
+
+    document.getElementById('cancel-appliance-settings-btn').addEventListener('click', () => {
+        document.getElementById('settings-appliance-modal').classList.add('hidden');
+    });
+    document.getElementById('settings-appliance-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const roomId = document.getElementById('edit-room-id').value;
+        const applianceId = document.getElementById('edit-appliance-id').value;
+        const newName = document.getElementById('edit-appliance-name').value;
+        const newRelay = document.getElementById('edit-appliance-relay').value;
+        const newRoomId = document.getElementById('edit-room-selector').value;
+        
+        try {
+            const response = await fetch('/api/update-appliance-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay, new_room_id: newRoomId })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification('Appliance settings updated!', 'on');
+                document.getElementById('settings-appliance-modal').classList.add('hidden');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to save settings.', 'off');
+        }
+    });
+
+    document.getElementById('cancel-timer-btn').addEventListener('click', () => {
+        document.getElementById('timer-modal').classList.add('hidden');
+    });
+    
+    document.getElementById('timer-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const roomId = document.getElementById('timer-room-id').value;
+        const applianceId = document.getElementById('timer-appliance-id').value;
+        
+        let timerTimestamp = null;
+        const hours = parseInt(document.getElementById('timer-duration-hours').value) || 0;
+        const minutes = parseInt(document.getElementById('timer-duration-minutes').value) || 0;
+        const datetimeInput = document.getElementById('timer-datetime').value;
+
+        if (hours > 0 || minutes > 0) {
+            const timerDurationMinutes = hours * 60 + minutes;
+            if (timerDurationMinutes > 0) {
+                 timerTimestamp = Math.floor(Date.now() / 1000) + timerDurationMinutes * 60;
+            }
+        } else if (datetimeInput) {
+            const futureDate = new Date(datetimeInput);
+            if (futureDate.getTime() > Date.now()) {
+                timerTimestamp = Math.floor(futureDate.getTime() / 1000);
+            }
+        }
+
+        if (timerTimestamp) {
+            try {
+                const response = await fetch('/api/set-timer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: timerTimestamp })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Timer set successfully!', 'on');
+                    document.getElementById('timer-modal').classList.add('hidden');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to set timer.', 'off');
+            }
+        } else {
+            showNotification('Please set a valid future time or duration.', 'off');
+        }
+    });
+
+    document.getElementById('back-to-rooms-btn').addEventListener('click', () => {
+        currentRoomId = null;
+        document.getElementById('rooms-view').classList.remove('hidden');
+        document.getElementById('appliances-view').classList.add('hidden');
+    });
+
+    document.getElementById('confirm-action-btn').addEventListener('click', async () => {
+        confirmationModal.classList.add('hidden');
+        if (currentAction === 'delete-room') {
+            const [roomId] = currentData;
+            try {
+                const response = await fetch('/api/delete-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Room deleted successfully!', 'on');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to delete room.', 'off');
+            }
+        } else if (currentAction === 'delete-appliance') {
+            const [roomId, applianceId] = currentData;
+            try {
+                const response = await fetch('/api/delete-appliance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Appliance deleted successfully!', 'on');
+                    document.getElementById('settings-appliance-modal').classList.add('hidden');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to delete appliance.', 'off');
+            }
+        } else if (currentAction === 'cancel-timer') {
+            const [roomId, applianceId] = currentData;
+            try {
+                const response = await fetch('/api/set-timer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: null })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Timer cancelled.', 'on');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to cancel timer.', 'off');
+            }
+        }
+    });
+    confirmCancelBtn.addEventListener('click', () => {
+        confirmationModal.classList.add('hidden');
+    });
+
     document.getElementById('ai-control-switch').addEventListener('click', async (e) => {
         const switchBtn = e.currentTarget;
         const isChecked = switchBtn.dataset.state === 'checked';
