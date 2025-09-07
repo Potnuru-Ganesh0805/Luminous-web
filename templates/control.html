@@ -146,18 +146,6 @@
             <div id="ai-monitoring-card" class="hidden bg-card text-card-foreground rounded-xl border p-4 shadow-sm w-full max-w-lg mx-auto mt-4 flex flex-col items-center text-center">
                 <h3 class="text-lg font-semibold mb-2">AI Monitoring Active</h3>
                 <p id="monitoring-status" class="text-lg text-primary-accent font-bold">Awaiting human detection...</p>
-                <canvas id="webcam-canvas" class="w-full h-auto rounded-md mt-2"></canvas>
-            </div>
-            
-            <!-- Webcam Container -->
-            <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
-                    <h4 class="text-sm font-semibold">Live Feed</h4>
-                    <button id="close-webcam-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <video id="webcam-video-live" autoplay class="w-full h-full object-cover"></video>
             </div>
         </div>
 
@@ -330,13 +318,14 @@
     let webcamStream = null;
     let isMonitoring = false;
     let model = null;
-    let monitoringIntervalId = null;
+    let monitoringInterval = null;
     const monitoringCard = document.getElementById('ai-monitoring-card');
     const monitoringStatus = document.getElementById('monitoring-status');
     const webcamCanvas = document.createElement('canvas');
-    const webcamVideo = document.createElement('video');
+    const monitoringVideo = document.createElement('video');
     const webcamBtn = document.getElementById('open-webcam-btn');
     const monitoringBtn = document.getElementById('start-monitoring-btn');
+    const liveWebcamVideo = document.getElementById('webcam-video-live');
 
     // Load the MobileNet model
     const loadModel = async () => {
@@ -355,14 +344,14 @@
     };
 
     const detectHumans = async (interval) => {
-        if (!isMonitoring || !model || !webcamStream) {
-            console.log("Monitoring stopped or stream/model not available.");
+        if (!isMonitoring || !model) {
+            console.log("Monitoring stopped or model not available.");
             return;
         }
 
         // Draw the video frame to the canvas for detection
         const ctx = webcamCanvas.getContext('2d');
-        ctx.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        ctx.drawImage(monitoringVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
         
         const predictions = await model.classify(webcamCanvas);
         const humanDetected = predictions.some(p => p.className.includes('human') || p.className.includes('person') && p.probability > 0.5);
@@ -381,7 +370,7 @@
         
         // Loop the detection with the specified interval
         if (isMonitoring) {
-             monitoringIntervalId = setTimeout(() => detectHumans(interval), interval);
+             monitoringInterval = setTimeout(() => detectHumans(interval), interval);
         }
     };
     
@@ -392,9 +381,9 @@
             monitoringCard.classList.add('hidden');
             monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
             showNotification('AI monitoring stopped.', 'on');
-            if (monitoringIntervalId) {
-                 clearTimeout(monitoringIntervalId);
-                 monitoringIntervalId = null;
+            if (monitoringInterval) {
+                 clearTimeout(monitoringInterval);
+                 monitoringInterval = null;
             }
             if(currentRoomId) {
                 await fetch('/api/update-room-settings', {
@@ -403,6 +392,12 @@
                     body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
                 });
             }
+            // Stop the hidden monitoring stream
+            if (monitoringVideo.srcObject) {
+                 const tracks = monitoringVideo.srcObject.getTracks();
+                 tracks.forEach(track => track.stop());
+            }
+
         } else {
             // Start Monitoring
             try {
@@ -412,18 +407,16 @@
                      showNotification('Invalid time interval. Monitoring not started.', 'off');
                      return;
                  }
-
+                 
                  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                 webcamStream = stream;
-                 webcamVideo.srcObject = stream;
-                 webcamVideo.play();
-
+                 monitoringVideo.srcObject = stream;
+                 monitoringVideo.play();
+                 
                  isMonitoring = true;
                  monitoringCard.classList.remove('hidden');
                  monitoringBtn.innerHTML = '<i class="fas fa-video mr-2"></i>Stop Monitoring';
                  showNotification('AI monitoring started.', 'on');
                  
-                 // Send AI control signal to the backend
                  if(currentRoomId) {
                     await fetch('/api/update-room-settings', {
                         method: 'POST',
@@ -433,9 +426,9 @@
                  }
                 
                 // Set up canvas for detection
-                webcamVideo.onloadedmetadata = () => {
-                    webcamCanvas.width = webcamVideo.videoWidth;
-                    webcamCanvas.height = webcamVideo.videoHeight;
+                monitoringVideo.onloadedmetadata = () => {
+                    webcamCanvas.width = monitoringVideo.videoWidth;
+                    webcamCanvas.height = monitoringVideo.videoHeight;
                     detectHumans(parsedInterval * 1000);
                 };
 
@@ -960,6 +953,10 @@
     document.getElementById('open-webcam-btn').addEventListener('click', toggleWebcam);
     document.getElementById('close-webcam-btn').addEventListener('click', toggleWebcam);
     
+    // AI Monitoring Logic
+    let monitoringIntervalId = null;
+    let monitoringVideo = null;
+    let monitoringStream = null;
     
     document.getElementById('start-monitoring-btn').addEventListener('click', toggleMonitoring);
 
