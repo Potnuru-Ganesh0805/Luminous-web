@@ -308,7 +308,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 <script>
     let currentRoomId = null;
     let timerIntervals = {};
@@ -318,7 +318,7 @@
     let webcamStream = null;
     let isMonitoring = false;
     let model = null;
-    let monitoringInterval = null;
+    let monitoringIntervalId = null;
     const monitoringCard = document.getElementById('ai-monitoring-card');
     const monitoringStatus = document.getElementById('monitoring-status');
     const webcamCanvas = document.createElement('canvas');
@@ -327,11 +327,11 @@
     const monitoringBtn = document.getElementById('start-monitoring-btn');
     const liveWebcamVideo = document.getElementById('webcam-video-live');
 
-    // Load the MobileNet model
+    // Load the COCO-SSD model
     const loadModel = async () => {
         try {
             monitoringStatus.textContent = 'Loading AI model...';
-            model = await mobilenet.load();
+            model = await cocoSsd.load();
             monitoringStatus.textContent = 'AI model loaded successfully.';
             console.log('AI model loaded successfully.');
             // Enable the monitoring button after the model is loaded
@@ -353,19 +353,17 @@
         const ctx = webcamCanvas.getContext('2d');
         ctx.drawImage(monitoringVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
         
-        const predictions = await model.classify(webcamCanvas);
-        const humanDetected = predictions.some(p => p.className.includes('human') || p.className.includes('person') && p.probability > 0.5);
+        const predictions = await model.detect(webcamCanvas);
+        const humanDetected = predictions.some(p => p.class === 'person');
 
         console.log("AI predictions:", predictions);
 
         if (humanDetected) {
             console.log('Human detected!');
-            // Trigger AI action if needed
             monitoringStatus.textContent = 'Human detected! AI is in control.';
         } else {
             console.log('No human detected.');
             monitoringStatus.textContent = 'No human detected. Awaiting...';
-            // Potentially turn off lights here based on a timer
         }
         
         // Loop the detection with the specified interval
@@ -393,9 +391,9 @@
                 });
             }
             // Stop the hidden monitoring stream
-            if (monitoringVideo.srcObject) {
-                 const tracks = monitoringVideo.srcObject.getTracks();
-                 tracks.forEach(track => track.stop());
+            if (monitoringStream) {
+                 monitoringStream.getTracks().forEach(track => track.stop());
+                 monitoringStream = null;
             }
 
         } else {
@@ -409,6 +407,9 @@
                  }
                  
                  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                 monitoringStream = stream;
+                 
+                 // Create a hidden video element for the monitoring feed
                  monitoringVideo.srcObject = stream;
                  monitoringVideo.play();
                  
@@ -425,10 +426,7 @@
                     });
                  }
                 
-                // Set up canvas for detection
                 monitoringVideo.onloadedmetadata = () => {
-                    webcamCanvas.width = monitoringVideo.videoWidth;
-                    webcamCanvas.height = monitoringVideo.videoHeight;
                     detectHumans(parsedInterval * 1000);
                 };
 
@@ -956,6 +954,7 @@
     // AI Monitoring Logic
     let monitoringIntervalId = null;
     let monitoringStream = null;
+
     
     document.getElementById('start-monitoring-btn').addEventListener('click', toggleMonitoring);
 
