@@ -319,7 +319,7 @@
     let webcamStream = null;
     let isMonitoring = false;
     let model = null;
-    let monitoringInterval = null; // Store the interval ID here
+    let monitoringIntervalId = null; // Changed from a generic variable to a specific ID for clarity
     const monitoringCard = document.getElementById('ai-monitoring-card');
     const monitoringStatus = document.getElementById('monitoring-status');
     const webcamCanvas = document.getElementById('webcam-canvas');
@@ -344,26 +344,35 @@
     };
 
     const detectHumans = async () => {
-        if (!isMonitoring || !model || !webcamStream) return;
+        if (!isMonitoring || !model || !webcamStream) {
+            console.log("Monitoring stopped or stream/model not available.");
+            return;
+        }
 
-        // Draw the video frame to the canvas for detection
-        const ctx = webcamCanvas.getContext('2d');
-        ctx.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
-        
         const predictions = await model.classify(webcamCanvas);
         const humanDetected = predictions.some(p => p.className.includes('human') || p.className.includes('person') && p.probability > 0.5);
 
+        console.log("AI predictions:", predictions);
+
         if (humanDetected) {
             monitoringStatus.textContent = 'Human detected! AI is in control.';
+            console.log('Human detected!');
             // Trigger AI action if needed
         } else {
             monitoringStatus.textContent = 'No human detected. Awaiting...';
+            console.log('No human detected.');
             // Potentially turn off lights here based on a timer
         }
         
         // Loop the detection with the specified interval
         if (isMonitoring) {
-             monitoringInterval = setTimeout(detectHumans, monitoringInterval);
+             const interval = parseInt(prompt("Enter the time interval for AI monitoring (in seconds):"));
+             if (!isNaN(interval) && interval > 0) {
+                 monitoringIntervalId = setTimeout(() => detectHumans(interval), interval * 1000);
+             } else {
+                 showNotification('Invalid time interval. Monitoring stopped.', 'off');
+                 toggleMonitoring();
+             }
         }
     };
 
@@ -373,8 +382,9 @@
             monitoringCard.classList.add('hidden');
             monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
             showNotification('AI monitoring stopped.', 'on');
-            if (monitoringInterval) {
-                 clearTimeout(monitoringInterval);
+            if (monitoringIntervalId) {
+                 clearTimeout(monitoringIntervalId);
+                 monitoringIntervalId = null;
             }
             if(currentRoomId) {
                 await fetch('/api/update-room-settings', {
@@ -386,13 +396,6 @@
         } else {
             if (!webcamStream) {
                 showNotification('Please open webcam first.', 'off');
-                return;
-            }
-
-            const interval = prompt("Enter the time interval for AI monitoring (in milliseconds):");
-            const parsedInterval = parseInt(interval);
-            if (isNaN(parsedInterval) || parsedInterval <= 0) {
-                showNotification('Invalid time interval. Monitoring not started.', 'off');
                 return;
             }
             
@@ -408,7 +411,13 @@
                 });
             }
             // Start the AI detection loop
-            monitoringInterval = setTimeout(detectHumans, parsedInterval);
+            const interval = parseInt(prompt("Enter the time interval for AI monitoring (in seconds):"));
+            if (!isNaN(interval) && interval > 0) {
+                 monitoringIntervalId = setTimeout(() => detectHumans(interval), interval * 1000);
+            } else {
+                 showNotification('Invalid time interval. Monitoring not started.', 'off');
+                 toggleMonitoring();
+            }
         }
     };
 
@@ -943,7 +952,7 @@
                 return;
             }
 
-            const interval = prompt("Enter the time interval for AI monitoring (in milliseconds):");
+            const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
             const parsedInterval = parseInt(interval);
             if (isNaN(parsedInterval) || parsedInterval <= 0) {
                 showNotification('Invalid time interval. Monitoring not started.', 'off');
@@ -961,6 +970,8 @@
                     body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
                 });
             }
+            // Start the AI detection loop
+            monitoringInterval = setTimeout(detectHumans, parsedInterval * 1000);
         }
     };
     
@@ -1107,7 +1118,7 @@
     window.onload = () => {
         fetchRoomsAndAppliances();
         setInterval(fetchRoomsAndAppliances, 3000); // Polling for real-time updates
-        loadModel(); // Load AI model on page load
+        
         // Add event listeners for modals and forms
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
