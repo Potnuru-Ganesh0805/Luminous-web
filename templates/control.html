@@ -461,7 +461,6 @@
                    monitoringInterval = parsedInterval * 1000;
                    detectHumans();
                };
-
             } catch (err) {
                 console.error("Error accessing webcam for monitoring:", err);
                 showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
@@ -817,6 +816,7 @@
 
     const openApplianceSettings = (roomId, applianceId) => {
         const room = allRoomsData.find(r => r.id === roomId);
+        if (!room) return;
         const appliance = room.appliances.find(a => a.id === applianceId);
         
         document.getElementById('edit-room-id').value = roomId;
@@ -1011,6 +1011,20 @@
     let monitoringVideo = null;
     let monitoringIntervalId = null;
     let modelLoaded = false;
+    let model = null;
+
+    const loadModel = async () => {
+        if (modelLoaded) return;
+        try {
+            showNotification('Loading AI model...', 'on');
+            model = await cocoSsd.load();
+            modelLoaded = true;
+            showNotification('AI model loaded successfully.', 'on');
+        } catch (error) {
+            console.error('Failed to load model:', error);
+            showNotification('Failed to load AI model.', 'off');
+        }
+    };
 
     const detectHumans = async () => {
         if (!isMonitoring || !modelLoaded) {
@@ -1079,10 +1093,11 @@
             }
         } else {
             try {
-                if (!model) {
-                    showNotification('AI model is not loaded yet. Please wait a moment.', 'off');
-                    return;
+                if (!modelLoaded) {
+                    await loadModel();
+                    if (!modelLoaded) return;
                 }
+
                 const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
                 const parsedInterval = parseInt(interval);
                 if (isNaN(parsedInterval) || parsedInterval <= 0) {
@@ -1328,40 +1343,40 @@
                     showNotification('Failed to cancel timer.', 'off');
                 }
             }
-        }
-    });
-    confirmCancelBtn.addEventListener('click', () => {
-        confirmationModal.classList.add('hidden');
-    });
+        });
+        confirmCancelBtn.addEventListener('click', () => {
+            confirmationModal.classList.add('hidden');
+        });
 
-    document.getElementById('ai-control-switch').addEventListener('click', async (e) => {
-        const switchBtn = e.currentTarget;
-        const isChecked = switchBtn.dataset.state === 'checked';
-        const roomId = document.getElementById('edit-room-id').value;
+        document.getElementById('ai-control-switch').addEventListener('click', async (e) => {
+            const switchBtn = e.currentTarget;
+            const isChecked = switchBtn.dataset.state === 'checked';
+            const roomId = document.getElementById('edit-room-id').value;
 
-        try {
-            const response = await fetch('/api/update-room-settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, ai_control: !isChecked })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                if (isChecked) {
-                    switchBtn.dataset.state = 'off';
-                    switchBtn.classList.remove('data-[state=checked]');
+            try {
+                const response = await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, ai_control: !isChecked })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    if (isChecked) {
+                        switchBtn.dataset.state = 'off';
+                        switchBtn.classList.remove('data-[state=checked]');
+                    } else {
+                        switchBtn.dataset.state = 'checked';
+                        switchBtn.classList.add('data-[state=checked]');
+                    }
+                    showNotification(`AI Control is now ${!isChecked ? 'ON' : 'OFF'}.`, 'on');
+                    fetchRoomsAndAppliances();
                 } else {
-                    switchBtn.dataset.state = 'checked';
-                    switchBtn.classList.add('data-[state=checked]');
+                    showNotification(`Error: ${result.message}`, 'off');
                 }
-                showNotification(`AI Control is now ${!isChecked ? 'ON' : 'OFF'}.`, 'on');
-                fetchRoomsAndAppliances();
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to update AI control.', 'off');
             }
-        } catch (error) {
-            console.error(error);
-            showNotification('Failed to update AI control.', 'off');
-        }
-    });
-};
+        });
+    };
+{% endblock %}
