@@ -72,7 +72,7 @@
         transform: translateX(26px);
     }
 
-    #webcam-container {
+    #webcam-card-container {
         position: fixed;
         bottom: 20px;
         right: 20px;
@@ -86,7 +86,7 @@
         z-index: 40;
     }
 
-    .dark #webcam-container {
+    .dark #webcam-card-container {
         border: 2px solid var(--primary-accent-dark);
         background-color: var(--bg-card-dark);
     }
@@ -96,7 +96,10 @@
         height: 100%;
         object-fit: cover;
     }
-
+    #ai-monitoring-card {
+        max-width: 500px;
+    }
+    
 </style>
 <div class="container mx-auto">
     <div class="text-center mb-8">
@@ -139,10 +142,11 @@
                 </button>
             </div>
 
-            <!-- Webcam Container -->
-            <div id="webcam-card-container" class="hidden bg-card text-card-foreground rounded-xl border p-4 shadow-sm w-full max-w-lg mx-auto mt-4">
-                <h3 class="text-lg font-semibold mb-2">Live Webcam Feed</h3>
-                <video id="webcam-video" autoplay class="w-full h-auto rounded-md"></video>
+            <!-- AI Monitoring Card -->
+            <div id="ai-monitoring-card" class="hidden bg-card text-card-foreground rounded-xl border p-4 shadow-sm w-full max-w-lg mx-auto mt-4 flex flex-col items-center text-center">
+                <h3 class="text-lg font-semibold mb-2">AI Monitoring Active</h3>
+                <p id="monitoring-status" class="text-lg text-primary-accent font-bold">Awaiting human detection...</p>
+                <canvas id="webcam-canvas" class="w-full h-auto rounded-md mt-2"></canvas>
             </div>
         </div>
 
@@ -304,6 +308,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 <script>
     let currentRoomId = null;
     let timerIntervals = {};
@@ -311,6 +317,100 @@
     let roomSortable = null;
     let applianceSortable = null;
     let webcamStream = null;
+    let isMonitoring = false;
+    let model = null;
+    let monitoringInterval = null; // Store the interval ID here
+    const monitoringCard = document.getElementById('ai-monitoring-card');
+    const monitoringStatus = document.getElementById('monitoring-status');
+    const webcamCanvas = document.getElementById('webcam-canvas');
+    const webcamVideo = document.getElementById('webcam-video');
+    const webcamBtn = document.getElementById('open-webcam-btn');
+    const monitoringBtn = document.getElementById('start-monitoring-btn');
+
+    // Load the MobileNet model
+    const loadModel = async () => {
+        try {
+            monitoringStatus.textContent = 'Loading AI model...';
+            model = await mobilenet.load();
+            monitoringStatus.textContent = 'AI model loaded successfully.';
+            console.log('AI model loaded successfully.');
+            // Enable the monitoring button after the model is loaded
+            monitoringBtn.disabled = false;
+        } catch (error) {
+            console.error('Failed to load model:', error);
+            monitoringStatus.textContent = 'Failed to load AI model.';
+            showNotification('Failed to load AI model.', 'off');
+        }
+    };
+
+    const detectHumans = async () => {
+        if (!isMonitoring || !model || !webcamStream) return;
+
+        // Draw the video frame to the canvas for detection
+        const ctx = webcamCanvas.getContext('2d');
+        ctx.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        
+        const predictions = await model.classify(webcamCanvas);
+        const humanDetected = predictions.some(p => p.className.includes('human') || p.className.includes('person') && p.probability > 0.5);
+
+        if (humanDetected) {
+            monitoringStatus.textContent = 'Human detected! AI is in control.';
+            // Trigger AI action if needed
+        } else {
+            monitoringStatus.textContent = 'No human detected. Awaiting...';
+            // Potentially turn off lights here based on a timer
+        }
+        
+        // Loop the detection with the specified interval
+        if (isMonitoring) {
+             monitoringInterval = setTimeout(detectHumans, monitoringInterval);
+        }
+    };
+
+    const toggleMonitoring = async () => {
+        if (isMonitoring) {
+            isMonitoring = false;
+            monitoringCard.classList.add('hidden');
+            monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
+            showNotification('AI monitoring stopped.', 'on');
+            if (monitoringInterval) {
+                 clearTimeout(monitoringInterval);
+            }
+            if(currentRoomId) {
+                await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
+                });
+            }
+        } else {
+            if (!webcamStream) {
+                showNotification('Please open webcam first.', 'off');
+                return;
+            }
+
+            const interval = prompt("Enter the time interval for AI monitoring (in milliseconds):");
+            const parsedInterval = parseInt(interval);
+            if (isNaN(parsedInterval) || parsedInterval <= 0) {
+                showNotification('Invalid time interval. Monitoring not started.', 'off');
+                return;
+            }
+            
+            isMonitoring = true;
+            monitoringCard.classList.remove('hidden');
+            monitoringBtn.innerHTML = '<i class="fas fa-video mr-2"></i>Stop Monitoring';
+            showNotification('AI monitoring started.', 'on');
+            if(currentRoomId) {
+                await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
+                });
+            }
+            // Start the AI detection loop
+            monitoringInterval = setTimeout(detectHumans, parsedInterval);
+        }
+    };
 
     // Save new room order to the backend
     const saveNewRoomOrder = async (newOrder) => {
@@ -784,9 +884,9 @@
         document.getElementById('appliances-view').classList.add('hidden');
     });
 
-    // Placeholder function for the new buttons
-    const handleWebcam = async () => {
-        const webcamContainer = document.getElementById('webcam-card-container');
+    // Webcam Logic
+    const toggleWebcam = async () => {
+        const webcamCardContainer = document.getElementById('webcam-card-container');
         const webcamVideo = document.getElementById('webcam-video');
         const webcamBtn = document.getElementById('open-webcam-btn');
         
@@ -794,7 +894,7 @@
             // Close webcam
             webcamStream.getTracks().forEach(track => track.stop());
             webcamStream = null;
-            webcamContainer.classList.add('hidden');
+            webcamCardContainer.classList.add('hidden');
             webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
             showNotification('Webcam turned off.', 'on');
         } else {
@@ -803,7 +903,7 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 webcamStream = stream;
                 webcamVideo.srcObject = stream;
-                webcamContainer.classList.remove('hidden');
+                webcamCardContainer.classList.remove('hidden');
                 webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
                 showNotification('Webcam turned on.', 'on');
             } catch (err) {
@@ -819,11 +919,51 @@
             webcamStream.getTracks().forEach(track => track.stop());
         }
     });
+
+    document.getElementById('open-webcam-btn').addEventListener('click', toggleWebcam);
+    document.getElementById('close-webcam-btn').addEventListener('click', toggleWebcam);
     
-    document.getElementById('open-webcam-btn').addEventListener('click', handleWebcam);
-    document.getElementById('close-webcam-btn').addEventListener('click', handleWebcam);
+    // AI Monitoring Logic
+    const handleMonitoring = async () => {
+        if (isMonitoring) {
+            isMonitoring = false;
+            monitoringCard.classList.add('hidden');
+            monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
+            showNotification('AI monitoring stopped.', 'on');
+            if(currentRoomId) {
+                await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
+                });
+            }
+        } else {
+            if (!webcamStream) {
+                showNotification('Please open webcam first.', 'off');
+                return;
+            }
+
+            const interval = prompt("Enter the time interval for AI monitoring (in milliseconds):");
+            const parsedInterval = parseInt(interval);
+            if (isNaN(parsedInterval) || parsedInterval <= 0) {
+                showNotification('Invalid time interval. Monitoring not started.', 'off');
+                return;
+            }
+            
+            isMonitoring = true;
+            monitoringCard.classList.remove('hidden');
+            monitoringBtn.innerHTML = '<i class="fas fa-video mr-2"></i>Stop Monitoring';
+            showNotification('AI monitoring started.', 'on');
+            if(currentRoomId) {
+                await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
+                });
+            }
+        }
+    };
     
-    const handleMonitoring = () => showNotification("Starting AI monitoring...", 'on');
     document.getElementById('start-monitoring-btn').addEventListener('click', handleMonitoring);
 
     const showAppliances = (roomId) => {
@@ -932,21 +1072,42 @@
 
     
     // Add event listener for AI control switch in the room settings modal
-    document.getElementById('ai-control-switch').addEventListener('click', (e) => {
+    document.getElementById('ai-control-switch').addEventListener('click', async (e) => {
         const switchBtn = e.currentTarget;
         const isChecked = switchBtn.dataset.state === 'checked';
-        if (isChecked) {
-            switchBtn.dataset.state = 'off';
-            switchBtn.classList.remove('data-[state=checked]');
-        } else {
-            switchBtn.dataset.state = 'checked';
-            switchBtn.classList.add('data-[state=checked]');
+        const roomId = document.getElementById('edit-room-id').value;
+
+        try {
+            const response = await fetch('/api/update-room-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, ai_control: !isChecked })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                 // Update the local state based on the successful API call
+                if (isChecked) {
+                    switchBtn.dataset.state = 'off';
+                    switchBtn.classList.remove('data-[state=checked]');
+                } else {
+                    switchBtn.dataset.state = 'checked';
+                    switchBtn.classList.add('data-[state=checked]');
+                }
+                showNotification(`AI Control is now ${!isChecked ? 'ON' : 'OFF'}.`, 'on');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to update AI control.', 'off');
         }
     });
 
     window.onload = () => {
         fetchRoomsAndAppliances();
         setInterval(fetchRoomsAndAppliances, 3000); // Polling for real-time updates
+        loadModel(); // Load AI model on page load
         // Add event listeners for modals and forms
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
