@@ -258,7 +258,7 @@
     </div>
 
     <!-- Timer Modal -->
-    <div id="timer-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 dark:bg-gray-900 dark:bg-opacity-70 flex items-center justify-center hidden z-50">
+    <div id="timer-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Set Timer</h3>
             <form id="timer-form">
@@ -320,5 +320,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-<script type="module" src="{{ url_for('static', filename='control.js') }}"></script>
+<script type="module">
+    import { fetchRoomsAndAppliances, showNotification, initModalsAndListeners } from './control.js';
+    
+    window.onload = async () => {
+        await fetchRoomsAndAppliances();
+        setInterval(fetchRoomsAndAppliances, 3000); // Polling for real-time updates
+        initModalsAndListeners(); // Initialize modal event listeners
+    };
+</script>
 {% endblock %}
