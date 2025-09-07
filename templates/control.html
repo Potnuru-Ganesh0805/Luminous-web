@@ -345,10 +345,11 @@
 
     // Load the COCO-SSD model
     const loadModel = async () => {
-        if (model) return;
+        if (modelLoaded) return;
         try {
-            monitoringStatus.textContent = 'Loading AI model...';
+            showNotification('Loading AI model...', 'on');
             model = await cocoSsd.load();
+            modelLoaded = true;
             monitoringStatus.textContent = 'AI model loaded successfully.';
             console.log('AI model loaded successfully.');
         } catch (error) {
@@ -970,31 +971,6 @@
         document.getElementById('appliances-view').classList.add('hidden');
     });
 
-    // Webcam Logic
-    const toggleWebcam = async () => {
-        const webcamVideo = document.getElementById('webcam-video-live');
-        const webcamCardContainer = document.getElementById('webcam-card-container');
-        
-        if (webcamStream) {
-            webcamStream.getTracks().forEach(track => track.stop());
-            webcamStream = null;
-            webcamCardContainer.classList.add('hidden');
-            webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
-            showNotification('Webcam turned off.', 'on');
-        } else {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                webcamStream = stream;
-                webcamVideo.srcObject = webcamStream;
-                webcamCardContainer.classList.remove('hidden');
-                webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
-                showNotification('Webcam turned on.', 'on');
-            } catch (err) {
-                console.error("Error accessing webcam:", err);
-                showNotification('Failed to access webcam. Please check permissions.', 'off');
-            }
-        }
-    };
 
     // Close webcam when navigating away
     window.addEventListener('beforeunload', () => {
@@ -1007,139 +983,7 @@
     document.getElementById('close-webcam-btn').addEventListener('click', toggleWebcam);
 
     // AI Monitoring Logic
-    let monitoringStream = null;
-    let monitoringVideo = null;
-    let monitoringIntervalId = null;
     let modelLoaded = false;
-    let model = null;
-
-    const loadModel = async () => {
-        if (modelLoaded) return;
-        try {
-            showNotification('Loading AI model...', 'on');
-            model = await cocoSsd.load();
-            modelLoaded = true;
-            showNotification('AI model loaded successfully.', 'on');
-        } catch (error) {
-            console.error('Failed to load model:', error);
-            showNotification('Failed to load AI model.', 'off');
-        }
-    };
-
-    const detectHumans = async () => {
-        if (!isMonitoring || !modelLoaded) {
-            console.log("Monitoring stopped or model not available.");
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
-            }
-            return;
-        }
-
-        if (!monitoringVideo.srcObject) {
-            console.log("Monitoring stream not available, stopping detection.");
-            toggleMonitoring();
-            return;
-        }
-
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = monitoringVideo.videoWidth;
-        tempCanvas.height = monitoringVideo.videoHeight;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(monitoringVideo, 0, 0, tempCanvas.width, tempCanvas.height);
-        
-        try {
-            const predictions = await model.detect(tempCanvas);
-            const humanDetected = predictions.some(p => p.class === 'person');
-
-            if (humanDetected) {
-                const humanDetections = predictions.filter(p => p.class === 'person');
-                console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
-                monitoringStatus.textContent = 'Human detected! AI is in control.';
-            } else {
-                console.log("notfound");
-                monitoringStatus.textContent = 'No human detected. Awaiting...';
-            }
-        } catch (error) {
-            console.error("Error during detection:", error);
-            monitoringStatus.textContent = 'Error during detection.';
-        }
-        
-        if (isMonitoring) {
-             monitoringIntervalId = setTimeout(detectHumans, 3000); // 3 seconds interval for detection
-        }
-    };
-
-    const toggleMonitoring = async () => {
-        if (isMonitoring) {
-            isMonitoring = false;
-            monitoringCard.classList.add('hidden');
-            monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
-            showNotification('AI monitoring stopped.', 'on');
-            if (monitoringIntervalId) {
-                 clearTimeout(monitoringIntervalId);
-                 monitoringIntervalId = null;
-            }
-            if (monitoringStream) {
-                 monitoringStream.getTracks().forEach(track => track.stop());
-                 monitoringStream = null;
-            }
-            if(currentRoomId) {
-                await fetch('/api/update-room-settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
-                });
-            }
-        } else {
-            try {
-                if (!modelLoaded) {
-                    await loadModel();
-                    if (!modelLoaded) return;
-                }
-
-                const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
-                const parsedInterval = parseInt(interval);
-                if (isNaN(parsedInterval) || parsedInterval <= 0) {
-                    showNotification('Invalid time interval. Monitoring not started.', 'off');
-                    return;
-                }
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                monitoringStream = stream;
-                
-                if (!monitoringVideo) {
-                   monitoringVideo = document.createElement('video');
-                   monitoringVideo.style.display = 'none';
-                   document.body.appendChild(monitoringVideo);
-                }
-                monitoringVideo.srcObject = monitoringStream;
-                await monitoringVideo.play();
-                
-                isMonitoring = true;
-                monitoringCard.classList.remove('hidden');
-                monitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
-                showNotification('AI monitoring started.', 'on');
-                
-                if(currentRoomId) {
-                    await fetch('/api/update-room-settings', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
-                    });
-                }
-               
-                monitoringVideo.onloadedmetadata = () => {
-                   monitoringInterval = parsedInterval * 1000;
-                   detectHumans();
-               };
-            } catch (err) {
-                console.error("Error accessing webcam for monitoring:", err);
-                showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
-                return;
-            }
-        }
-    };
     
     document.getElementById('start-monitoring-btn').addEventListener('click', toggleMonitoring);
 
