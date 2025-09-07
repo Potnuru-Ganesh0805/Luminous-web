@@ -261,7 +261,9 @@
     let currentRoomId = null;
     let timerIntervals = {};
     let allRoomsData = [];
-    
+    let roomSortable = null;
+    let applianceSortable = null;
+
     // Save new room order to the backend
     const saveNewRoomOrder = async (newOrder) => {
         try {
@@ -345,12 +347,17 @@
                 container.appendChild(roomCard);
             });
             // Make rooms sortable
-            new Sortable(container, {
+            if (roomSortable) {
+                roomSortable.destroy();
+            }
+            roomSortable = new Sortable(container, {
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 onEnd: async (evt) => {
-                    const newOrder = Array.from(container.children).map(child => child.dataset.id);
-                    await saveNewRoomOrder(newOrder);
+                    if (evt.oldIndex !== evt.newIndex) {
+                        const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                        await saveNewRoomOrder(newOrder);
+                    }
                 }
             });
         } else {
@@ -449,12 +456,17 @@
                 };
                 updateTimerDisplay(applianceCard, appliance);
             });
-            new Sortable(container, {
+            if (applianceSortable) {
+                applianceSortable.destroy();
+            }
+            applianceSortable = new Sortable(container, {
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 onEnd: async (evt) => {
-                    const newOrder = Array.from(container.children).map(child => child.dataset.id);
-                    await saveNewApplianceOrder(currentRoomId, newOrder);
+                    if (evt.oldIndex !== evt.newIndex) {
+                        const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                        await saveNewApplianceOrder(currentRoomId, newOrder);
+                    }
                 }
             });
         } else {
