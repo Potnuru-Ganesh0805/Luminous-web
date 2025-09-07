@@ -932,8 +932,6 @@
     document.getElementById('open-webcam-btn').addEventListener('click', toggleWebcam);
     document.getElementById('close-webcam-btn').addEventListener('click', toggleWebcam);
     
-    // AI Monitoring Logic
-    let monitoringInterval = null;
 
     const detectHumans = async () => {
         if (!isMonitoring || !model) {
