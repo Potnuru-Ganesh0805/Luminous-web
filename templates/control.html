@@ -119,21 +119,31 @@
     
     <!-- Appliance View -->
     <div id="appliances-view" class="hidden transition-transform duration-500">
-        <div class="flex items-center justify-between mb-4">
-            <button id="back-to-rooms-btn" class="bg-gray-400 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-500 transition-colors">
-                <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
-            </button>
-            <div class="flex-grow flex justify-center">
-                <h2 class="text-2xl font-bold text-text-card-foreground" id="appliances-heading"></h2>
+        <div class="flex flex-col items-center mb-4">
+            <div class="w-full flex justify-between items-center mb-4">
+                <button id="back-to-rooms-btn" class="bg-gray-400 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-500 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
+                </button>
+                <div class="flex-grow flex justify-center">
+                    <h2 class="text-2xl font-bold text-text-card-foreground" id="appliances-heading"></h2>
+                </div>
+                <div></div>
             </div>
-        </div>
-        <div class="flex justify-center space-x-4 mb-4">
-            <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                <i class="fas fa-camera mr-2"></i>Open Webcam
-            </button>
-            <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                <i class="fas fa-eye mr-2"></i>Start Monitoring
-            </button>
+            
+            <div class="flex space-x-4 mb-4">
+                <button id="open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-camera mr-2"></i>Open Webcam
+                </button>
+                <button id="start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-eye mr-2"></i>Start Monitoring
+                </button>
+            </div>
+
+            <!-- Webcam Container -->
+            <div id="webcam-card-container" class="hidden bg-card text-card-foreground rounded-xl border p-4 shadow-sm w-full max-w-lg mx-auto mt-4">
+                <h3 class="text-lg font-semibold mb-2">Live Webcam Feed</h3>
+                <video id="webcam-video" autoplay class="w-full h-auto rounded-md"></video>
+            </div>
         </div>
 
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -281,8 +291,14 @@
     </div>
 
     <!-- Webcam Container -->
-    <div id="webcam-container" class="hidden">
-        <video id="webcam-video" autoplay></video>
+    <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
+            <h4 class="text-sm font-semibold">Live Feed</h4>
+            <button id="close-webcam-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <video id="webcam-video" autoplay class="w-full h-full object-cover"></video>
     </div>
 </div>
 
@@ -770,10 +786,9 @@
 
     // Placeholder function for the new buttons
     const handleWebcam = async () => {
-        const webcamContainer = document.getElementById('webcam-container');
+        const webcamContainer = document.getElementById('webcam-card-container');
         const webcamVideo = document.getElementById('webcam-video');
         const webcamBtn = document.getElementById('open-webcam-btn');
-        const webcamIcon = webcamBtn.querySelector('i');
         
         if (webcamStream) {
             // Close webcam
@@ -804,8 +819,10 @@
             webcamStream.getTracks().forEach(track => track.stop());
         }
     });
-
+    
     document.getElementById('open-webcam-btn').addEventListener('click', handleWebcam);
+    document.getElementById('close-webcam-btn').addEventListener('click', handleWebcam);
+    
     const handleMonitoring = () => showNotification("Starting AI monitoring...", 'on');
     document.getElementById('start-monitoring-btn').addEventListener('click', handleMonitoring);
 
