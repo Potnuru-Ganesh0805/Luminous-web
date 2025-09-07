@@ -1,5 +1,3 @@
-import { showNotification } from './themes.js';
-
 let currentRoomId = null;
 let timerIntervals = {};
 let allRoomsData = [];
@@ -17,6 +15,8 @@ const webcamBtn = document.getElementById('open-webcam-btn');
 const monitoringBtn = document.getElementById('start-monitoring-btn');
 const liveWebcamVideo = document.getElementById('webcam-video-live');
 const webcamCardContainer = document.getElementById('webcam-card-container');
+const closeWebcamBtn = document.getElementById('close-webcam-btn');
+const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
 
 // Load the COCO-SSD model
 const loadModel = async () => {
@@ -32,7 +32,7 @@ const loadModel = async () => {
     }
 };
 
-const detectHumans = async (interval) => {
+const detectHumans = async () => {
     if (!isMonitoring || !model) {
         console.log("Monitoring stopped or model not available.");
         return;
@@ -58,11 +58,12 @@ const detectHumans = async (interval) => {
         monitoringStatus.textContent = `Human detected! AI is in control of Room ${allRoomsData.find(r => r.id === currentRoomId)?.name}.`;
     } else {
         console.log("notfound");
-        monitoringStatus.textContent = `No human detected. Awaiting...`;
+        monitoringStatus.textContent = 'No human detected. Awaiting...';
     }
     
     if (isMonitoring) {
-         monitoringIntervalId = setTimeout(() => detectHumans(interval), interval);
+        // Use a configurable interval for detection
+        monitoringIntervalId = setTimeout(detectHumans, monitoringInterval);
     }
 };
 
@@ -78,6 +79,7 @@ const toggleMonitoring = async () => {
         }
         if (monitoringVideo && monitoringVideo.srcObject) {
              monitoringVideo.srcObject.getTracks().forEach(track => track.stop());
+             monitoringVideo.srcObject = null;
         }
         if(currentRoomId) {
             await fetch('/api/update-room-settings', {
@@ -102,13 +104,14 @@ const toggleMonitoring = async () => {
              }
              
              const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+             monitoringStream = stream;
              
              if (!monitoringVideo) {
                 monitoringVideo = document.createElement('video');
                 monitoringVideo.style.display = 'none';
                 document.body.appendChild(monitoringVideo);
              }
-             monitoringVideo.srcObject = stream;
+             monitoringVideo.srcObject = monitoringStream;
              monitoringVideo.play();
              
              isMonitoring = true;
@@ -123,11 +126,13 @@ const toggleMonitoring = async () => {
                     body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
                 });
              }
-            
+             
             monitoringVideo.onloadedmetadata = () => {
-                detectHumans(parsedInterval * 1000);
+                webcamCanvas.width = monitoringVideo.videoWidth;
+                webcamCanvas.height = monitoringVideo.videoHeight;
+                monitoringInterval = parsedInterval * 1000;
+                detectHumans();
             };
-
         } catch (err) {
              console.error("Error accessing webcam for monitoring:", err);
              showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
@@ -148,7 +153,7 @@ const toggleWebcam = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             webcamStream = stream;
-            liveWebcamVideo.srcObject = stream;
+            liveWebcamVideo.srcObject = webcamStream;
             webcamCardContainer.classList.remove('hidden');
             webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
             showNotification('Webcam turned on.', 'on');
@@ -178,17 +183,5 @@ const stopAllStreams = () => {
     }
 };
 
-// Event listeners
-document.getElementById('open-webcam-btn').addEventListener('click', toggleWebcam);
-document.getElementById('close-webcam-btn').addEventListener('click', toggleWebcam);
-document.getElementById('start-monitoring-btn').addEventListener('click', toggleMonitoring);
-window.addEventListener('beforeunload', stopAllStreams);
-
-// Initialization on window load
-window.onload = async () => {
-    await fetchRoomsAndAppliances();
-    setInterval(fetchRoomsAndAppliances, 3000); // Polling for real-time updates
-    loadModel(); // Load the AI model on page load
-    initModals(); // Initialize modal event listeners
-    initListeners(); // Initialize other event listeners
-};
+// Export functions for use in other parts of the script
+export { currentRoomId, allRoomsData, roomSortable, applianceSortable, fetchRoomsAndAppliances, toggleMonitoring, toggleWebcam, sendApplianceState, openConfirmationModal };
