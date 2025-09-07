@@ -345,7 +345,7 @@
 
     // Load the COCO-SSD model
     const loadModel = async () => {
-        if (model) return; // Prevent double-loading
+        if (model) return;
         try {
             monitoringStatus.textContent = 'Loading AI model...';
             model = await cocoSsd.load();
@@ -1010,10 +1010,15 @@
     let monitoringStream = null;
     let monitoringVideo = null;
     let monitoringIntervalId = null;
+    let modelLoaded = false;
 
     const detectHumans = async () => {
-        if (!isMonitoring || !model) {
+        if (!isMonitoring || !modelLoaded) {
             console.log("Monitoring stopped or model not available.");
+            if (monitoringStream) {
+                monitoringStream.getTracks().forEach(track => track.stop());
+                monitoringStream = null;
+            }
             return;
         }
 
@@ -1047,7 +1052,7 @@
         }
         
         if (isMonitoring) {
-             monitoringIntervalId = setTimeout(() => detectHumans(), monitoringInterval);
+             monitoringIntervalId = setTimeout(detectHumans, 3000); // 3 seconds interval for detection
         }
     };
 
@@ -1078,7 +1083,6 @@
                     showNotification('AI model is not loaded yet. Please wait a moment.', 'off');
                     return;
                 }
-
                 const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
                 const parsedInterval = parseInt(interval);
                 if (isNaN(parsedInterval) || parsedInterval <= 0) {
@@ -1114,7 +1118,6 @@
                    monitoringInterval = parsedInterval * 1000;
                    detectHumans();
                };
-
             } catch (err) {
                 console.error("Error accessing webcam for monitoring:", err);
                 showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
@@ -1132,7 +1135,7 @@
             renderAppliances(room.appliances, room.name);
         }
     };
-    
+
     const initModalsAndListeners = () => {
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
