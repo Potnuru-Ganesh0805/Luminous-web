@@ -16,6 +16,7 @@
         background-color: var(--bg-muted-dark);
         opacity: 0.5;
     }
+    
     /*
      * Custom style for the new switch button
      */
@@ -96,11 +97,12 @@
         height: 100%;
         object-fit: cover;
     }
+    
     #ai-monitoring-card {
         max-width: 500px;
     }
-    
 </style>
+
 <div class="container mx-auto">
     <div class="text-center mb-8">
         <h1 class="text-4xl font-extrabold mb-2 text-primary-accent">Relay Control Panel</h1>
@@ -147,17 +149,6 @@
                 <h3 class="text-lg font-semibold mb-2">AI Monitoring Active</h3>
                 <p id="monitoring-status" class="text-lg text-primary-accent font-bold">Awaiting human detection...</p>
             </div>
-
-            <!-- Webcam Container -->
-            <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
-                    <h4 class="text-sm font-semibold">Live Feed</h4>
-                    <button id="close-webcam-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <video id="webcam-video-live" autoplay class="w-full h-full object-cover"></video>
-            </div>
         </div>
 
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -168,9 +159,19 @@
         </button>
     </div>
 
+    <!-- Webcam Container (single instance) -->
+    <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
+            <h4 class="text-sm font-semibold">Live Feed</h4>
+            <button id="close-webcam-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <video id="webcam-video-live" autoplay class="w-full h-full object-cover"></video>
+    </div>
 
     <!-- Room Settings Modal -->
-    <div id="settings-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 dark:bg-gray-900 dark:bg-opacity-70 flex items-center justify-center hidden z-50">
+    <div id="settings-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Edit Room Settings</h3>
             <form id="settings-room-form">
@@ -192,7 +193,7 @@
         </div>
     </div>
 
-    <!-- Modals for adding rooms and appliances -->
+    <!-- Add Room Modal -->
     <div id="add-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Add New Room</h3>
@@ -207,6 +208,7 @@
         </div>
     </div>
 
+    <!-- Add Appliance Modal -->
     <div id="add-appliance-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 dark:bg-gray-900 dark:bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Add New Appliance</h3>
@@ -222,11 +224,13 @@
             </form>
         </div>
     </div>
+
+    <!-- Appliance Settings Modal -->
     <div id="settings-appliance-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 dark:bg-gray-900 dark:bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Edit Appliance Settings</h3>
             <form id="settings-appliance-form">
-                <input type="hidden" id="edit-room-id">
+                <input type="hidden" id="settings-edit-room-id">
                 <input type="hidden" id="edit-appliance-id">
                 <label for="edit-appliance-name" class="block text-text-card-foreground mb-2">Appliance Name:</label>
                 <input type="text" id="edit-appliance-name" name="name" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none" required>
@@ -303,24 +307,13 @@
             </div>
         </div>
     </div>
-
-    <!-- Webcam Container -->
-    <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
-            <h4 class="text-sm font-semibold">Live Feed</h4>
-            <button id="close-webcam-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <video id="webcam-video-live" autoplay class="w-full h-full object-cover"></video>
-    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 <script>
+    // Global state variables
     let currentRoomId = null;
     let timerIntervals = {};
     let allRoomsData = [];
@@ -331,38 +324,51 @@
     let isMonitoring = false;
     let model = null;
     let monitoringIntervalId = null;
-    let monitoringVideo = null;
+    let monitoringVideoElement = null;
+    let currentAction = null;
+    let currentData = null;
+    
+    // DOM elements
     const monitoringCard = document.getElementById('ai-monitoring-card');
     const monitoringStatus = document.getElementById('monitoring-status');
-    const webcamCanvas = document.createElement('canvas');
-    const monitoringVideoElement = document.createElement('video');
     const webcamBtn = document.getElementById('open-webcam-btn');
     const monitoringBtn = document.getElementById('start-monitoring-btn');
     const liveWebcamVideo = document.getElementById('webcam-video-live');
     const webcamCardContainer = document.getElementById('webcam-card-container');
     const closeWebcamBtn = document.getElementById('close-webcam-btn');
-    const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
 
-    // Load the COCO-SSD model
-
-    const stopAllStreams = () => {
-        if (webcamStream) {
-            webcamStream.getTracks().forEach(track => track.stop());
-            webcamStream = null;
-        }
-        if (isMonitoring) {
-            isMonitoring = false;
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
-            }
-            if (monitoringIntervalId) {
-                clearTimeout(monitoringIntervalId);
-                monitoringIntervalId = null;
-            }
-        }
+    // Utility functions
+    const showNotification = (message, type) => {
+        // This function should be defined elsewhere in the application
+        console.log(`${type.toUpperCase()}: ${message}`);
     };
 
+    const openConfirmationModal = (action, ...data) => {
+        currentAction = action;
+        currentData = data;
+        const title = document.getElementById('confirmation-title');
+        const message = document.getElementById('confirmation-message');
+        
+        switch (action) {
+            case 'delete-room':
+                title.textContent = 'Delete Room';
+                message.textContent = 'Are you sure you want to delete this room? This action cannot be undone.';
+                break;
+            case 'delete-appliance':
+                title.textContent = 'Delete Appliance';
+                message.textContent = 'Are you sure you want to delete this appliance? This action cannot be undone.';
+                break;
+            case 'cancel-timer':
+                title.textContent = 'Cancel Timer';
+                message.textContent = 'Are you sure you want to cancel the timer for this appliance?';
+                break;
+        }
+        confirmationModal.classList.remove('hidden');
+    };
+
+    // API functions
     const saveNewRoomOrder = async (newOrder) => {
         try {
             await fetch('/api/save-room-order', {
@@ -413,6 +419,179 @@
         }
     };
 
+    const sendApplianceState = async (roomId, applianceId, state) => {
+        try {
+            const response = await fetch('/api/set-appliance-state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, state: state })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification(result.message, state ? 'on' : 'off');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to send command.', 'off');
+        }
+    };
+
+    // AI Model and monitoring functions
+    const loadModel = async () => {
+        if (model) return;
+        try {
+            showNotification('Loading AI model...', 'on');
+            model = await cocoSsd.load();
+            showNotification('AI model loaded successfully.', 'on');
+            console.log('AI model loaded successfully.');
+        } catch (error) {
+            console.error('Failed to load model:', error);
+            showNotification('Failed to load AI model.', 'off');
+        }
+    };
+
+    const detectHumans = async (interval = 3000) => {
+        if (!isMonitoring || !model) {
+            console.log("Monitoring stopped or model not available.");
+            if (monitoringStream) {
+                monitoringStream.getTracks().forEach(track => track.stop());
+                monitoringStream = null;
+            }
+            return;
+        }
+
+        if (!monitoringVideoElement || !monitoringVideoElement.srcObject) {
+            console.log("Monitoring stream not available, stopping detection.");
+            toggleMonitoring();
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = monitoringVideoElement.videoWidth;
+        canvas.height = monitoringVideoElement.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(monitoringVideoElement, 0, 0, canvas.width, canvas.height);
+        
+        try {
+            const predictions = await model.detect(canvas);
+            const humanDetected = predictions.some(p => p.class === 'person');
+
+            if (humanDetected) {
+                const humanDetections = predictions.filter(p => p.class === 'person');
+                console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
+                monitoringStatus.textContent = 'Human detected! AI is in control.';
+            } else {
+                console.log("No human found");
+                monitoringStatus.textContent = 'No human detected. Awaiting...';
+            }
+        } catch (error) {
+            console.error("Error during detection:", error);
+            monitoringStatus.textContent = 'Error during detection.';
+        }
+        
+        if (isMonitoring) {
+            monitoringIntervalId = setTimeout(() => detectHumans(interval), interval);
+        }
+    };
+
+    const toggleMonitoring = async () => {
+        if (isMonitoring) {
+            isMonitoring = false;
+            monitoringCard.classList.add('hidden');
+            monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
+            showNotification('AI monitoring stopped.', 'on');
+            
+            if (monitoringIntervalId) {
+                clearTimeout(monitoringIntervalId);
+                monitoringIntervalId = null;
+            }
+            if (monitoringStream) {
+                monitoringStream.getTracks().forEach(track => track.stop());
+                monitoringStream = null;
+            }
+            if (currentRoomId) {
+                await fetch('/api/update-room-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
+                });
+            }
+        } else {
+            try {
+                if (!model) {
+                    await loadModel();
+                }
+
+                const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
+                const parsedInterval = parseInt(interval);
+                if (isNaN(parsedInterval) || parsedInterval <= 0) {
+                    showNotification('Invalid time interval. Monitoring not started.', 'off');
+                    return;
+                }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                monitoringStream = stream;
+                
+                if (!monitoringVideoElement) {
+                    monitoringVideoElement = document.createElement('video');
+                    monitoringVideoElement.style.display = 'none';
+                    document.body.appendChild(monitoringVideoElement);
+                }
+                monitoringVideoElement.srcObject = monitoringStream;
+                await monitoringVideoElement.play();
+                
+                isMonitoring = true;
+                monitoringCard.classList.remove('hidden');
+                monitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
+                showNotification('AI monitoring started.', 'on');
+                
+                if (currentRoomId) {
+                    await fetch('/api/update-room-settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
+                    });
+                }
+               
+                monitoringVideoElement.onloadedmetadata = () => {
+                    const monitoringInterval = parsedInterval * 1000;
+                    detectHumans(monitoringInterval);
+                };
+            } catch (err) {
+                console.error("Error accessing webcam for monitoring:", err);
+                showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
+                return;
+            }
+        }
+    };
+
+    // Webcam functions
+    const toggleWebcam = async () => {
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => track.stop());
+            webcamStream = null;
+            webcamCardContainer.classList.add('hidden');
+            webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
+            showNotification('Webcam turned off.', 'on');
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamStream = stream;
+                liveWebcamVideo.srcObject = webcamStream;
+                webcamCardContainer.classList.remove('hidden');
+                webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
+                showNotification('Webcam turned on.', 'on');
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                showNotification('Failed to access webcam. Please check permissions.', 'off');
+            }
+        }
+    };
+
+    // Rendering functions
     const renderRooms = (rooms) => {
         const container = document.getElementById('room-container');
         container.innerHTML = '';
@@ -568,6 +747,15 @@
         }
     };
 
+    // Modal and settings functions
+    const showAppliances = (roomId) => {
+        const room = allRoomsData.find(r => r.id === roomId);
+        if (room) {
+            currentRoomId = roomId;
+            renderAppliances(room.appliances, room.name);
+        }
+    };
+
     const openRoomSettings = (roomId) => {
         const room = allRoomsData.find(r => r.id === roomId);
         if (!room) return;
@@ -583,97 +771,12 @@
         document.getElementById('settings-room-modal').classList.remove('hidden');
     };
 
-    document.getElementById('cancel-room-settings-btn').addEventListener('click', () => {
-        document.getElementById('settings-room-modal').classList.add('hidden');
-    });
-
-    document.getElementById('delete-room-btn').addEventListener('click', () => {
-        const roomId = document.getElementById('edit-room-id').value;
-        openConfirmationModal('delete-room', roomId);
-    });
-
-    document.getElementById('settings-room-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const roomId = document.getElementById('edit-room-id').value;
-        const newName = document.getElementById('edit-room-name').value;
-        const aiControl = document.getElementById('ai-control-switch').dataset.state === 'checked';
-        try {
-            const response = await fetch('/api/update-room-settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, name: newName, ai_control: aiControl })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showNotification('Room settings updated!', 'on');
-                document.getElementById('settings-room-modal').classList.add('hidden');
-                fetchRoomsAndAppliances();
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
-            }
-        } catch (error) {
-            console.error(error);
-            showNotification('Failed to save room settings.', 'off');
-        }
-    });
-
-    const sendApplianceState = async (roomId, applianceId, state) => {
-        try {
-            const response = await fetch('/api/set-appliance-state', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, state: state })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showNotification(result.message, state ? 'on' : 'off');
-                fetchRoomsAndAppliances();
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
-            }
-        } catch (error) {
-            console.error(error);
-            showNotification('Failed to send command.', 'off');
-        }
-    };
-
-    const saveApplianceName = async (inputElement) => {
-        const roomId = currentRoomId;
-        const applianceId = inputElement.dataset.applianceId;
-        const newName = inputElement.value;
-
-        if (newName === "") {
-            inputElement.value = "Unnamed Appliance";
-            showNotification("Appliance name cannot be empty.", "off");
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/set-appliance-name', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showNotification(`Appliance name updated to "${newName}".`, 'on');
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
-            }
-        } catch (error) {
-            console.error(error);
-            showNotification('Failed to update appliance name.', 'off');
-        } finally {
-            inputElement.disabled = true;
-        }
-    };
-
     const openApplianceSettings = (roomId, applianceId) => {
         const room = allRoomsData.find(r => r.id === roomId);
         if (!room) return;
         const appliance = room.appliances.find(a => a.id === applianceId);
         
-        document.getElementById('edit-room-id').value = roomId;
+        document.getElementById('settings-edit-room-id').value = roomId;
         document.getElementById('edit-appliance-id').value = applianceId;
         document.getElementById('edit-appliance-name').value = appliance.name;
         document.getElementById('edit-appliance-relay').value = appliance.relay_number;
@@ -699,19 +802,176 @@
         document.getElementById('settings-appliance-modal').classList.remove('hidden');
     };
 
-    document.getElementById('delete-appliance-btn').addEventListener('click', () => {
-        const roomId = document.getElementById('edit-room-id').value;
-        const applianceId = document.getElementById('edit-appliance-id').value;
-        openConfirmationModal('delete-appliance', roomId, applianceId);
-    });
+    const openTimerModal = async (roomId, applianceId) => {
+        document.getElementById('timer-room-id').value = roomId;
+        document.getElementById('timer-appliance-id').value = applianceId;
+        document.getElementById('timer-modal').classList.remove('hidden');
+    };
 
-    document.getElementById('cancel-appliance-settings-btn').addEventListener('click', () => {
-        document.getElementById('settings-appliance-modal').classList.add('hidden');
-    });
+    const toggleLock = async (roomId, applianceId) => {
+        try {
+            const response = await fetch('/api/get-rooms-and-appliances');
+            const rooms = await response.json();
+            const appliance = rooms.find(r => r.id === roomId).appliances.find(a => a.id === applianceId);
+            const newState = !appliance.locked;
 
-    document.getElementById('settings-appliance-form').addEventListener('submit', async (e) => {
+            const lockResponse = await fetch('/api/set-lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, locked: newState })
+            });
+            const result = await lockResponse.json();
+            if (lockResponse.ok) {
+                showNotification(`Appliance is now ${newState ? 'locked' : 'unlocked'}.`, 'on');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to update lock state.', 'off');
+        }
+    };
+
+    // Event listeners setup
+    const initEventListeners = () => {
+        // Navigation
+        document.getElementById('back-to-rooms-btn').addEventListener('click', () => {
+            currentRoomId = null;
+            document.getElementById('rooms-view').classList.remove('hidden');
+            document.getElementById('appliances-view').classList.add('hidden');
+        });
+
+        // Webcam controls
+        webcamBtn.addEventListener('click', toggleWebcam);
+        closeWebcamBtn.addEventListener('click', toggleWebcam);
+
+        // AI Monitoring controls
+        monitoringBtn.addEventListener('click', toggleMonitoring);
+
+        // Room modals
+        document.getElementById('add-room-btn').addEventListener('click', () => {
+            document.getElementById('add-room-modal').classList.remove('hidden');
+        });
+        document.getElementById('cancel-room-btn').addEventListener('click', () => {
+            document.getElementById('add-room-modal').classList.add('hidden');
+        });
+        document.getElementById('cancel-room-settings-btn').addEventListener('click', () => {
+            document.getElementById('settings-room-modal').classList.add('hidden');
+        });
+
+        // Appliance modals
+        document.getElementById('add-appliance-btn').addEventListener('click', () => {
+            document.getElementById('add-appliance-modal').classList.remove('hidden');
+        });
+        document.getElementById('cancel-appliance-btn').addEventListener('click', () => {
+            document.getElementById('add-appliance-modal').classList.add('hidden');
+        });
+        document.getElementById('cancel-appliance-settings-btn').addEventListener('click', () => {
+            document.getElementById('settings-appliance-modal').classList.add('hidden');
+        });
+
+        // Timer modal
+        document.getElementById('cancel-timer-btn').addEventListener('click', () => {
+            document.getElementById('timer-modal').classList.add('hidden');
+        });
+
+        // Confirmation modal
+        confirmCancelBtn.addEventListener('click', () => {
+            confirmationModal.classList.add('hidden');
+        });
+
+        // Form submissions
+        document.getElementById('add-room-form').addEventListener('submit', handleAddRoomSubmit);
+        document.getElementById('settings-room-form').addEventListener('submit', handleRoomSettingsSubmit);
+        document.getElementById('add-appliance-form').addEventListener('submit', handleAddApplianceSubmit);
+        document.getElementById('settings-appliance-form').addEventListener('submit', handleApplianceSettingsSubmit);
+        document.getElementById('timer-form').addEventListener('submit', handleTimerSubmit);
+
+        // Delete buttons
+        document.getElementById('delete-room-btn').addEventListener('click', () => {
+            const roomId = document.getElementById('edit-room-id').value;
+            openConfirmationModal('delete-room', roomId);
+        });
+        document.getElementById('delete-appliance-btn').addEventListener('click', () => {
+            const roomId = document.getElementById('settings-edit-room-id').value;
+            const applianceId = document.getElementById('edit-appliance-id').value;
+            openConfirmationModal('delete-appliance', roomId, applianceId);
+        });
+
+        // AI Control switch
+        document.getElementById('ai-control-switch').addEventListener('click', handleAiControlToggle);
+
+        // Confirmation actions
+        document.getElementById('confirm-action-btn').addEventListener('click', handleConfirmAction);
+    };
+
+    // Form handlers
+    const handleAddRoomSubmit = async (e) => {
+        e.preventDefault();
+        const roomName = document.getElementById('new-room-name').value;
+        const response = await fetch('/api/add-room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: roomName })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('add-room-modal').classList.add('hidden');
+            fetchRoomsAndAppliances();
+            showNotification('Room added successfully!', 'on');
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    };
+
+    const handleRoomSettingsSubmit = async (e) => {
         e.preventDefault();
         const roomId = document.getElementById('edit-room-id').value;
+        const newName = document.getElementById('edit-room-name').value;
+        const aiControl = document.getElementById('ai-control-switch').dataset.state === 'checked';
+        try {
+            const response = await fetch('/api/update-room-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, name: newName, ai_control: aiControl })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification('Room settings updated!', 'on');
+                document.getElementById('settings-room-modal').classList.add('hidden');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to save room settings.', 'off');
+        }
+    };
+
+    const handleAddApplianceSubmit = async (e) => {
+        e.preventDefault();
+        const applianceName = document.getElementById('new-appliance-name').value;
+        const relayNumber = document.getElementById('new-appliance-relay').value;
+        const response = await fetch('/api/add-appliance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: currentRoomId, name: applianceName, relay_number: relayNumber })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('add-appliance-modal').classList.add('hidden');
+            fetchRoomsAndAppliances();
+            showNotification('Appliance added successfully!', 'on');
+        } else {
+            showNotification(`Error: ${result.message}`, 'off');
+        }
+    };
+
+    const handleApplianceSettingsSubmit = async (e) => {
+        e.preventDefault();
+        const roomId = document.getElementById('settings-edit-room-id').value;
         const applianceId = document.getElementById('edit-appliance-id').value;
         const newName = document.getElementById('edit-appliance-name').value;
         const newRelay = document.getElementById('edit-appliance-relay').value;
@@ -721,7 +981,13 @@
             const response = await fetch('/api/update-appliance-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay, new_room_id: newRoomId })
+                body: JSON.stringify({ 
+                    room_id: roomId, 
+                    appliance_id: applianceId, 
+                    name: newName, 
+                    relay_number: newRelay, 
+                    new_room_id: newRoomId 
+                })
             });
             const result = await response.json();
             if (response.ok) {
@@ -735,19 +1001,9 @@
             console.error(error);
             showNotification('Failed to save settings.', 'off');
         }
-    });
-
-    const openTimerModal = async (roomId, applianceId) => {
-        document.getElementById('timer-room-id').value = roomId;
-        document.getElementById('timer-appliance-id').value = applianceId;
-        document.getElementById('timer-modal').classList.remove('hidden');
     };
 
-    document.getElementById('cancel-timer-btn').addEventListener('click', () => {
-        document.getElementById('timer-modal').classList.add('hidden');
-    });
-
-    document.getElementById('timer-form').addEventListener('submit', async (e) => {
+    const handleTimerSubmit = async (e) => {
         e.preventDefault();
         const roomId = document.getElementById('timer-room-id').value;
         const applianceId = document.getElementById('timer-appliance-id').value;
@@ -791,353 +1047,73 @@
         } else {
             showNotification('Please set a valid future time or duration.', 'off');
         }
-    });
+    };
 
-    const toggleLock = async (roomId, applianceId) => {
+    const handleAiControlToggle = async (e) => {
+        const switchBtn = e.currentTarget;
+        const isChecked = switchBtn.dataset.state === 'checked';
+        const roomId = document.getElementById('edit-room-id').value;
+
         try {
-            const response = await fetch('/api/get-rooms-and-appliances');
-            const rooms = await response.json();
-            const appliance = rooms.find(r => r.id === roomId).appliances.find(a => a.id === applianceId);
-            const newState = !appliance.locked;
-
-            const lockResponse = await fetch('/api/set-lock', {
+            const response = await fetch('/api/update-room-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, locked: newState })
+                body: JSON.stringify({ room_id: roomId, ai_control: !isChecked })
             });
-            const result = await lockResponse.json();
-            if (lockResponse.ok) {
-                showNotification(`Appliance is now ${newState ? 'locked' : 'unlocked'}.`, 'on');
+            const result = await response.json();
+            if (response.ok) {
+                if (isChecked) {
+                    switchBtn.dataset.state = 'off';
+                    switchBtn.classList.remove('data-[state=checked]');
+                } else {
+                    switchBtn.dataset.state = 'checked';
+                    switchBtn.classList.add('data-[state=checked]');
+                }
+                showNotification(`AI Control is now ${!isChecked ? 'ON' : 'OFF'}.`, 'on');
                 fetchRoomsAndAppliances();
             } else {
                 showNotification(`Error: ${result.message}`, 'off');
             }
         } catch (error) {
             console.error(error);
-            showNotification('Failed to update lock state.', 'off');
+            showNotification('Failed to update AI control.', 'off');
         }
     };
 
-    document.getElementById('back-to-rooms-btn').addEventListener('click', () => {
-        currentRoomId = null;
-        document.getElementById('rooms-view').classList.remove('hidden');
-        document.getElementById('appliances-view').classList.add('hidden');
-    });
-    const detectHumans = async () => {
-        // Enhanced model availability check - supports both model states
-        if (!isMonitoring || (!model && !modelLoaded)) {
-            console.log("Monitoring stopped or model not available.");
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
-            }
-            return;
-        }
-    
-        // Enhanced video element check - supports both video element names
-        const videoElement = monitoringVideoElement || monitoringVideo;
-        if (!videoElement || !videoElement.srcObject) {
-            console.log("Monitoring stream not available, stopping detection.");
-            toggleMonitoring();
-            return;
-        }
-    
-        // Enhanced canvas handling - use existing canvas if available, otherwise create temporary
-        let canvas, ctx;
-        if (typeof webcamCanvas !== 'undefined' && webcamCanvas) {
-            // Use existing webcamCanvas (Version 1 approach)
-            canvas = webcamCanvas;
-            ctx = canvas.getContext('2d');
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        } else {
-            // Create temporary canvas (Version 2 approach)
-            canvas = document.createElement('canvas');
-            canvas.width = videoElement.videoWidth;
-            canvas.height = videoElement.videoHeight;
-            ctx = canvas.getContext('2d');
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        }
+    const handleConfirmAction = async () => {
+        confirmationModal.classList.add('hidden');
         
-        try {
-            const predictions = await model.detect(canvas);
-            const humanDetected = predictions.some(p => p.class === 'person');
-            
-            if (humanDetected) {
-                const humanDetections = predictions.filter(p => p.class === 'person');
-                console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
-                monitoringStatus.textContent = 'Human detected! AI is in control.';
-            } else {
-                console.log("notfound");
-                monitoringStatus.textContent = 'No human detected. Awaiting...';
-            }
-        } catch (error) {
-            console.error("Error during detection:", error);
-            monitoringStatus.textContent = 'Error during detection.';
-        }
-        
-        // Enhanced interval handling - use variable if available, fallback to 3000ms
-        if (isMonitoring) {
-            const interval = (typeof monitoringInterval !== 'undefined' && monitoringInterval) 
-                ? monitoringInterval 
-                : 3000; // 3 seconds fallback
-            monitoringIntervalId = setTimeout(detectHumans, interval);
-        }
-    };
-
-    // Webcam Logic
-    const toggleWebcam = async () => {
-        // Enhanced element handling - use pre-defined variables if available, otherwise use getElementById
-        const webcamVideo = liveWebcamVideo || document.getElementById('webcam-video-live');
-        const webcamContainer = webcamCardContainer || document.getElementById('webcam-card-container');
-        
-        // Validation to ensure elements exist
-        if (!webcamVideo) {
-            console.error("Webcam video element not found");
-            showNotification('Webcam video element not available.', 'off');
-            return;
-        }
-        
-        if (!webcamContainer) {
-            console.error("Webcam container element not found");
-            showNotification('Webcam container element not available.', 'off');
-            return;
-        }
-        
-        if (webcamStream) {
-            // Turn off webcam
-            webcamStream.getTracks().forEach(track => track.stop());
-            webcamStream = null;
-            webcamContainer.classList.add('hidden');
-            
-            // Update button text if webcamBtn exists
-            if (typeof webcamBtn !== 'undefined' && webcamBtn) {
-                webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
-            }
-            
-            showNotification('Webcam turned off.', 'on');
-        } else {
-            // Turn on webcam
+        if (currentAction === 'delete-room') {
+            const [roomId] = currentData;
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                webcamStream = stream;
-                webcamVideo.srcObject = webcamStream;
-                webcamContainer.classList.remove('hidden');
-                
-                // Update button text if webcamBtn exists
-                if (typeof webcamBtn !== 'undefined' && webcamBtn) {
-                    webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
-                }
-                
-                showNotification('Webcam turned on.', 'on');
-            } catch (err) {
-                console.error("Error accessing webcam:", err);
-                showNotification('Failed to access webcam. Please check permissions.', 'off');
-            }
-        }
-    };
-
-    // Close webcam when navigating away
-    window.addEventListener('beforeunload', () => {
-        if (webcamStream) {
-            webcamStream.getTracks().forEach(track => track.stop());
-        }
-    });
-
-    document.getElementById('open-webcam-btn').addEventListener('click', toggleWebcam);
-    document.getElementById('close-webcam-btn').addEventListener('click', toggleWebcam);
-
-    // AI Monitoring Logic
-    let modelLoaded = false;
-
-    const loadModel = async () => {
-        if (modelLoaded) return;
-        try {
-            showNotification('Loading AI model...', 'on');
-            model = await cocoSsd.load();
-            modelLoaded = true;
-            monitoringStatus.textContent = 'AI model loaded successfully.';
-            showNotification('AI model loaded successfully.', 'on');
-        } catch (error) {
-            console.error('Failed to load model:', error);
-            monitoringStatus.textContent = 'Failed to load AI model.';
-            showNotification('Failed to load AI model.', 'off');
-        }
-    };
-    
-    const toggleMonitoring = async () => {
-        if (isMonitoring) {
-            // Stop monitoring
-            isMonitoring = false;
-            monitoringCard.classList.add('hidden');
-            monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
-            showNotification('AI monitoring stopped.', 'on');
-            
-            if (monitoringIntervalId) {
-                clearTimeout(monitoringIntervalId);
-                monitoringIntervalId = null;
-            }
-            
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
-            }
-            
-            if (currentRoomId) {
-                await fetch('/api/update-room-settings', {
+                const response = await fetch('/api/delete-room', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
-                });
-            }
-        } else {
-            // Start monitoring
-            try {
-                // Enhanced model loading check - supports both model states
-                if (!model && !modelLoaded) {
-                    await loadModel();
-                    // Additional validation after loading (from version 2)
-                    if (!model && !modelLoaded) {
-                        showNotification('Failed to load model. Monitoring not started.', 'off');
-                        return;
-                    }
-                }
-                
-                const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
-                const parsedInterval = parseInt(interval);
-                if (isNaN(parsedInterval) || parsedInterval <= 0) {
-                    showNotification('Invalid time interval. Monitoring not started.', 'off');
-                    return;
-                }
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                monitoringStream = stream;
-                
-                // Enhanced video element handling - supports both element names
-                let videoElement;
-                if (typeof monitoringVideoElement !== 'undefined') {
-                    videoElement = monitoringVideoElement;
-                    if (!videoElement) {
-                        videoElement = monitoringVideoElement = document.createElement('video');
-                        videoElement.style.display = 'none';
-                        document.body.appendChild(videoElement);
-                    }
-                } else {
-                    videoElement = monitoringVideo;
-                    if (!videoElement) {
-                        videoElement = monitoringVideo = document.createElement('video');
-                        videoElement.style.display = 'none';
-                        document.body.appendChild(videoElement);
-                    }
-                }
-                
-                videoElement.srcObject = monitoringStream;
-                await videoElement.play();
-                
-                isMonitoring = true;
-                monitoringCard.classList.remove('hidden');
-                monitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
-                showNotification('AI monitoring started.', 'on');
-                
-                if (currentRoomId) {
-                    await fetch('/api/update-room-settings', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
-                    });
-                }
-                
-                videoElement.onloadedmetadata = () => {
-                    monitoringInterval = parsedInterval * 1000;
-                    detectHumans();
-                };
-            } catch (err) {
-                console.error("Error accessing webcam for monitoring:", err);
-                showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
-                return;
-            }
-        }
-    };
-    
-    document.getElementById('start-monitoring-btn').addEventListener('click', toggleMonitoring);
-
-    const showAppliances = (roomId) => {
-        const room = allRoomsData.find(r => r.id === roomId);
-        if (room) {
-            currentRoomId = roomId;
-            renderAppliances(room.appliances, room.name);
-        }
-    };
-
-    const initModalsAndListeners = () => {
-        document.getElementById('add-room-btn').addEventListener('click', () => {
-            document.getElementById('add-room-modal').classList.remove('hidden');
-        });
-        document.getElementById('cancel-room-btn').addEventListener('click', () => {
-            document.getElementById('add-room-modal').classList.add('hidden');
-        });
-        document.getElementById('add-room-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const roomName = document.getElementById('new-room-name').value;
-            const response = await fetch('/api/add-room', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: roomName })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                document.getElementById('add-room-modal').classList.add('hidden');
-                fetchRoomsAndAppliances();
-                showNotification('Room added successfully!', 'on');
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
-            }
-        });
-
-        document.getElementById('add-appliance-btn').addEventListener('click', () => {
-            document.getElementById('add-appliance-modal').classList.remove('hidden');
-        });
-        document.getElementById('cancel-appliance-btn').addEventListener('click', () => {
-            document.getElementById('add-appliance-modal').classList.add('hidden');
-        });
-        document.getElementById('add-appliance-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const applianceName = document.getElementById('new-appliance-name').value;
-            const relayNumber = document.getElementById('new-appliance-relay').value;
-            const response = await fetch('/api/add-appliance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: currentRoomId, name: applianceName, relay_number: relayNumber })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                document.getElementById('add-appliance-modal').classList.add('hidden');
-                fetchRoomsAndAppliances();
-                showNotification('Appliance added successfully!', 'on');
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
-            }
-        });
-
-        document.getElementById('cancel-appliance-settings-btn').addEventListener('click', () => {
-            document.getElementById('settings-appliance-modal').classList.add('hidden');
-        });
-        document.getElementById('settings-appliance-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const roomId = document.getElementById('edit-room-id').value;
-            const applianceId = document.getElementById('edit-appliance-id').value;
-            const newName = document.getElementById('edit-appliance-name').value;
-            const newRelay = document.getElementById('edit-appliance-relay').value;
-            const newRoomId = document.getElementById('edit-room-selector').value;
-            
-            try {
-                const response = await fetch('/api/update-appliance-settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, name: newName, relay_number: newRelay, new_room_id: newRoomId })
+                    body: JSON.stringify({ room_id: roomId })
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    showNotification('Appliance settings updated!', 'on');
+                    showNotification('Room deleted successfully!', 'on');
+                    document.getElementById('settings-room-modal').classList.add('hidden');
+                    fetchRoomsAndAppliances();
+                } else {
+                    showNotification(`Error: ${result.message}`, 'off');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('Failed to delete room.', 'off');
+            }
+        } else if (currentAction === 'delete-appliance') {
+            const [roomId, applianceId] = currentData;
+            try {
+                const response = await fetch('/api/delete-appliance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotification('Appliance deleted successfully!', 'on');
                     document.getElementById('settings-appliance-modal').classList.add('hidden');
                     fetchRoomsAndAppliances();
                 } else {
@@ -1145,156 +1121,55 @@
                 }
             } catch (error) {
                 console.error(error);
-                showNotification('Failed to save settings.', 'off');
+                showNotification('Failed to delete appliance.', 'off');
             }
-        });
-
-        document.getElementById('cancel-timer-btn').addEventListener('click', () => {
-            document.getElementById('timer-modal').classList.add('hidden');
-        });
-        
-        document.getElementById('timer-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const roomId = document.getElementById('timer-room-id').value;
-            const applianceId = document.getElementById('timer-appliance-id').value;
-            
-            let timerTimestamp = null;
-            const hours = parseInt(document.getElementById('timer-duration-hours').value) || 0;
-            const minutes = parseInt(document.getElementById('timer-duration-minutes').value) || 0;
-            const datetimeInput = document.getElementById('timer-datetime').value;
-
-            if (hours > 0 || minutes > 0) {
-                const timerDurationMinutes = hours * 60 + minutes;
-                if (timerDurationMinutes > 0) {
-                     timerTimestamp = Math.floor(Date.now() / 1000) + timerDurationMinutes * 60;
-                }
-            } else if (datetimeInput) {
-                const futureDate = new Date(datetimeInput);
-                if (futureDate.getTime() > Date.now()) {
-                    timerTimestamp = Math.floor(futureDate.getTime() / 1000);
-                }
-            }
-
-            if (timerTimestamp) {
-                try {
-                    const response = await fetch('/api/set-timer', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: timerTimestamp })
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showNotification('Timer set successfully!', 'on');
-                        document.getElementById('timer-modal').classList.add('hidden');
-                        fetchRoomsAndAppliances();
-                    } else {
-                        showNotification(`Error: ${result.message}`, 'off');
-                    }
-                } catch (error) {
-                    console.error(error);
-                    showNotification('Failed to set timer.', 'off');
-                }
-            } else {
-                showNotification('Please set a valid future time or duration.', 'off');
-            }
-        });
-
-        document.getElementById('confirm-action-btn').addEventListener('click', async () => {
-            confirmationModal.classList.add('hidden');
-            if (currentAction === 'delete-room') {
-                const [roomId] = currentData;
-                try {
-                    const response = await fetch('/api/delete-room', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: roomId })
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showNotification('Room deleted successfully!', 'on');
-                        fetchRoomsAndAppliances();
-                    } else {
-                        showNotification(`Error: ${result.message}`, 'off');
-                    }
-                } catch (error) {
-                    console.error(error);
-                    showNotification('Failed to delete room.', 'off');
-                }
-            } else if (currentAction === 'delete-appliance') {
-                const [roomId, applianceId] = currentData;
-                try {
-                    const response = await fetch('/api/delete-appliance', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: roomId, appliance_id: applianceId })
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showNotification('Appliance deleted successfully!', 'on');
-                        document.getElementById('settings-appliance-modal').classList.add('hidden');
-                        fetchRoomsAndAppliances();
-                    } else {
-                        showNotification(`Error: ${result.message}`, 'off');
-                    }
-                } catch (error) {
-                    console.error(error);
-                    showNotification('Failed to delete appliance.', 'off');
-                }
-            } else if (currentAction === 'cancel-timer') {
-                const [roomId, applianceId] = currentData;
-                try {
-                    const response = await fetch('/api/set-timer', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: null })
-                    });
-                    const result = await response.json();
-                    if (response.ok) {
-                        showNotification('Timer cancelled.', 'on');
-                        fetchRoomsAndAppliances();
-                    } else {
-                        showNotification(`Error: ${result.message}`, 'off');
-                    }
-                } catch (error) {
-                    console.error(error);
-                    showNotification('Failed to cancel timer.', 'off');
-                }
-            }
-        });
-        confirmCancelBtn.addEventListener('click', () => {
-            confirmationModal.classList.add('hidden');
-        });
-
-        document.getElementById('ai-control-switch').addEventListener('click', async (e) => {
-            const switchBtn = e.currentTarget;
-            const isChecked = switchBtn.dataset.state === 'checked';
-            const roomId = document.getElementById('edit-room-id').value;
-
+        } else if (currentAction === 'cancel-timer') {
+            const [roomId, applianceId] = currentData;
             try {
-                const response = await fetch('/api/update-room-settings', {
+                const response = await fetch('/api/set-timer', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: roomId, ai_control: !isChecked })
+                    body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: null })
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    if (isChecked) {
-                        switchBtn.dataset.state = 'off';
-                        switchBtn.classList.remove('data-[state=checked]');
-                    } else {
-                        switchBtn.dataset.state = 'checked';
-                        switchBtn.classList.add('data-[state=checked]');
-                    }
-                    showNotification(`AI Control is now ${!isChecked ? 'ON' : 'OFF'}.`, 'on');
+                    showNotification('Timer cancelled.', 'on');
                     fetchRoomsAndAppliances();
                 } else {
                     showNotification(`Error: ${result.message}`, 'off');
                 }
             } catch (error) {
                 console.error(error);
-                showNotification('Failed to update AI control.', 'off');
+                showNotification('Failed to cancel timer.', 'off');
             }
-        });
+        }
     };
+
+    // Cleanup function
+    const cleanup = () => {
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => track.stop());
+            webcamStream = null;
+        }
+        if (monitoringStream) {
+            monitoringStream.getTracks().forEach(track => track.stop());
+            monitoringStream = null;
+        }
+        if (monitoringIntervalId) {
+            clearTimeout(monitoringIntervalId);
+            monitoringIntervalId = null;
+        }
+        Object.values(timerIntervals).forEach(interval => clearInterval(interval));
+    };
+
+    // Initialize application
+    window.addEventListener('beforeunload', cleanup);
+    window.addEventListener('load', () => {
+        fetchRoomsAndAppliances();
+        setInterval(fetchRoomsAndAppliances, 3000);
+        initEventListeners();
+        loadModel();
+    });
+
 </script>
 {% endblock %}
