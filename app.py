@@ -159,12 +159,13 @@ def send_detection_email_thread(recipient, subject, body, image_data):
     def send_email():
         with app.app_context():
             try:
-                msg = Message(subject, recipients=[recipient])
-                msg.body = body
+                msg = Message(subject, recipients=[recipient], sender=app.config['MAIL_USERNAME'])
+                msg.html = body
                 
                 # Decode the base64 image and attach it
-                image_binary = base64.b64decode(image_data.split(',')[1])
-                msg.attach("detection_alert.png", "image/png", image_binary)
+                if image_data:
+                    image_binary = base64.b64decode(image_data.split(',')[1])
+                    msg.attach("detection_alert.png", "image/png", image_binary, 'inline', headers=[('Content-ID', '<myimage>')])
                 
                 mail.send(msg)
                 print(f"Email sent successfully to {recipient}")
@@ -373,11 +374,26 @@ def update_room_settings():
 @login_required
 def delete_room():
     try:
-        room_id = request.json['room_id']
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
         user_data = get_user_data()
         user_data['rooms'] = [r for r in user_data['rooms'] if r['id'] != room_id]
         save_user_data(user_data)
         return jsonify({"status": "success", "message": "Room deleted."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/add-room', methods=['POST'])
+@login_required
+def add_room():
+    try:
+        data_from_request = request.json
+        room_name = data_from_request['name']
+        user_data = get_user_data()
+        new_room_id = str(len(user_data['rooms']) + 1)
+        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
+        save_user_data(user_data)
+        return jsonify({"status": "success", "room_id": new_room_id}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -397,62 +413,6 @@ def delete_appliance():
         room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
         save_user_data(user_data)
         return jsonify({"status": "success", "message": "Appliance deleted."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/add-room', methods=['POST'])
-@login_required
-def add_room():
-    try:
-        room_name = request.json['name']
-        user_data = get_user_data()
-        new_room_id = str(len(user_data['rooms']) + 1)
-        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
-        save_user_data(user_data)
-        return jsonify({"status": "success", "room_id": new_room_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/set-appliance-state', methods=['POST'])
-@login_required
-def set_appliance_state():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_id = data_from_request['appliance_id']
-        state = data_from_request['state']
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-        
-        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
-        if not appliance:
-            return jsonify({"status": "error", "message": "Appliance not found."}), 404
-        
-        if not state:
-            appliance['timer'] = None
-
-        appliance['state'] = state
-        
-        user_data['last_command'] = {
-            "room_id": room_id,
-            "appliance_id": appliance_id,
-            "state": state,
-            "relay_number": appliance['relay_number'],
-            "timestamp": int(time.time())
-        }
-        
-        save_user_data(user_data)
-        
-        if mqtt_client:
-            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:{int(state)}")
-        
-        action = "turned ON" if state else "turned OFF"
-        message = f"Appliance '{appliance['name']}' in room '{room['name']}' has been {action}."
-        
-        return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -631,6 +591,107 @@ def save_appliance_order():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/add-room', methods=['POST'])
+@login_required
+def add_room():
+    try:
+        data_from_request = request.json
+        room_name = data_from_request['name']
+        user_data = get_user_data()
+        new_room_id = str(len(user_data['rooms']) + 1)
+        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
+        save_user_data(user_data)
+        return jsonify({"status": "success", "room_id": new_room_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/update-room-settings', methods=['POST'])
+@login_required
+def update_room_settings():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        new_name = data_from_request.get('name')
+        ai_control = data_from_request.get('ai_control')
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        if new_name is not None:
+            room['name'] = new_name
+        if ai_control is not None:
+            room['ai_control'] = ai_control
+            # Additional logic to handle AI control toggle could go here
+
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "message": "Room settings updated."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/api/delete-room', methods=['POST'])
+@login_required
+def delete_room():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        user_data = get_user_data()
+        user_data['rooms'] = [r for r in user_data['rooms'] if r['id'] != room_id]
+        save_user_data(user_data)
+        return jsonify({"status": "success", "message": "Room deleted."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/add-appliance', methods=['POST'])
+@login_required
+def add_appliance():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_name = data_from_request['name']
+        relay_number = data_from_request['relay_number']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        new_appliance_id = str(len(room['appliances']) + 1)
+        room['appliances'].append({
+            "id": new_appliance_id,
+            "name": appliance_name,
+            "state": False,
+            "locked": False,
+            "timer": None,
+            "relay_number": int(relay_number)
+        })
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete-appliance', methods=['POST'])
+@login_required
+def delete_appliance():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+
+        room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
+        save_user_data(user_data)
+        return jsonify({"status": "success", "message": "Appliance deleted."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/get-analytics', methods=['GET'])
 @login_required
 def get_analytics():
@@ -769,26 +830,36 @@ def send_detection_email():
         recipient_email = user_data['user_settings']['email']
 
         if not recipient_email:
+            print("No recipient email found in user settings. Email not sent.")
             return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
 
         subject = "Luminous Home System Alert: Motion Detected!"
-        body = f"""
-        Dear {current_user.username},
-
-        This is an automated alert from your Luminous Home System.
-
-        Motion has been detected in your room: {room_name}
-        Time of detection: {timestamp}
-
-        Something is a bit fishy.
+        body_html = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h2 style="color: #d9534f;">Luminous Home System Alert!</h2>
+                    <hr style="border: 1px solid #ddd;">
+                    <p>Dear {current_user.username},</p>
+                    <p>This is an automated alert from your Luminous Home System. Something is a bit fishy.</p>
+                    <p>Motion has been detected in your room: <strong>{room_name}</strong></p>
+                    <p>Time of detection: <strong>{timestamp}</strong></p>
+                    <p>Please find the captured image attached below:</p>
+                    <img src="cid:myimage" alt="Motion Detection Alert" style="max-width: 100%; height: auto; border-radius: 5px;">
+                </div>
+            </body>
+        </html>
         """
         
         # Send the email in a separate thread to prevent blocking
-        send_detection_email_thread(recipient_email, subject, body, image_data)
+        send_detection_email_thread(recipient_email, subject, body_html, image_data)
+        
+        print("API call to send email initiated.")
 
         return jsonify({"status": "success", "message": "Email alert sent."}), 200
 
     except Exception as e:
+        print(f"Error in send_detection_email endpoint: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
