@@ -528,7 +528,6 @@
         // Get references to all necessary DOM elements.
         const liveWebcamVideo = document.getElementById('webcam-video-live');
         const webcamCardContainer = document.getElementById('webcam-card-container');
-        const webcamBtn = document.getElementById('webcam-btn');
     
         if (webcamStream) {
             // --- TURN WEBCAM OFF ---
@@ -1076,7 +1075,7 @@
     const initModalsAndListeners = () => {
         const confirmationModal = document.getElementById('confirmation-modal');
         const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
-
+        
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
         });
