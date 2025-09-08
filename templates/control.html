@@ -530,26 +530,44 @@
     /**
      * Toggles the user's live webcam view on or off.
      */
+    // Assume these variables are declared in a higher scope:
+    // let webcamStream = null;
+    // const showNotification = (message, type) => { /* implementation */ };
+    
+    /**
+     * Toggles the user's webcam on or off.
+     * It handles stream management and all UI updates.
+     */
     const toggleWebcam = async () => {
-        // Get a reference to the video element for live display.
-        liveWebcamVideo = liveWebcamVideo || document.getElementById('webcam-video-live');
+        // Get references to all necessary DOM elements.
+        const liveWebcamVideo = document.getElementById('webcam-video-live');
+        const webcamCardContainer = document.getElementById('webcam-card-container');
+        const webcamBtn = document.getElementById('webcam-btn');
     
         if (webcamStream) {
             // --- TURN WEBCAM OFF ---
+            // Stop each video track in the stream.
             webcamStream.getTracks().forEach(track => track.stop());
             webcamStream = null;
+    
+            // Update the UI.
             webcamCardContainer.classList.add('hidden');
             webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
             showNotification('Webcam turned off.', 'on');
+    
         } else {
             // --- TURN WEBCAM ON ---
             try {
+                // Request access to the user's webcam.
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 webcamStream = stream;
+    
+                // Display the stream in the video element and update the UI.
                 liveWebcamVideo.srcObject = webcamStream;
                 webcamCardContainer.classList.remove('hidden');
                 webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
                 showNotification('Webcam turned on.', 'on');
+                
             } catch (err) {
                 console.error("Error accessing webcam:", err);
                 showNotification('Failed to access webcam. Please check permissions.', 'off');
@@ -1042,27 +1060,7 @@
     });
 
     // Webcam Logic
-    const toggleWebcam = async () => {
-        if (webcamStream) {
-            webcamStream.getTracks().forEach(track => track.stop());
-            webcamStream = null;
-            webcamCardContainer.classList.add('hidden');
-            webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
-            showNotification('Webcam turned off.', 'on');
-        } else {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                webcamStream = stream;
-                liveWebcamVideo.srcObject = webcamStream;
-                webcamCardContainer.classList.remove('hidden');
-                webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
-                showNotification('Webcam turned on.', 'on');
-            } catch (err) {
-                console.error("Error accessing webcam:", err);
-                showNotification('Failed to access webcam. Please check permissions.', 'off');
-            }
-        }
-    };
+    
 
     // Close webcam when navigating away
     window.addEventListener('beforeunload', () => {
