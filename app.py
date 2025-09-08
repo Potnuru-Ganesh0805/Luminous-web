@@ -786,41 +786,6 @@ def ai_detection_signal():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/send-detection-email', methods=['POST'])
-@login_required
-def send_detection_email():
-    try:
-        data_from_request = request.json
-        room_name = data_from_request['room_name']
-        image_data = data_from_request['image_data']
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        user_data = get_user_data()
-        recipient_email = user_data['user_settings']['email']
-
-        if not recipient_email:
-            return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
-
-        subject = "Luminous Home System Alert: Motion Detected!"
-        body = f"""
-        Dear {current_user.username},
-
-        This is an automated alert from your Luminous Home System.
-
-        Motion has been detected in your room: {room_name}
-        Time of detection: {timestamp}
-
-        Something is a bit fishy.
-        """
-        
-        # Send the email in a separate thread to prevent blocking
-        send_detection_email_thread(recipient_email, subject, body, image_data)
-
-        return jsonify({"status": "success", "message": "Email alert sent."}), 200
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 if __name__ == '__main__':
     generate_analytics_data()
     run_mqtt_thread()
