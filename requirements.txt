@@ -4,3 +4,4 @@ paho-mqtt
 werkzeug
 gunicorn
 requests
+flask_mail
