@@ -107,7 +107,6 @@
         <p class="text-gray-700 dark:text-gray-300">Manage your rooms and appliances.</p>
     </div>
 
-    <!-- Main View: Rooms -->
     <div id="rooms-view" class="transition-transform duration-500">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold text-text-card-foreground">Rooms</h2>
@@ -116,11 +115,9 @@
             </button>
         </div>
         <div id="room-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Room cards will be dynamically inserted here -->
-        </div>
+            </div>
     </div>
     
-    <!-- Appliance View -->
     <div id="appliances-view" class="hidden transition-transform duration-500">
         <div class="flex flex-col items-center mb-4">
             <div class="w-full flex justify-between items-center mb-4">
@@ -142,13 +139,11 @@
                 </button>
             </div>
 
-            <!-- AI Monitoring Card -->
             <div id="ai-monitoring-card" class="hidden bg-card text-card-foreground rounded-xl border p-4 shadow-sm w-full max-w-lg mx-auto mt-4 flex flex-col items-center text-center">
                 <h3 class="text-lg font-semibold mb-2">AI Monitoring Active</h3>
                 <p id="monitoring-status" class="text-lg text-primary-accent font-bold">Awaiting human detection...</p>
             </div>
 
-            <!-- Webcam Container -->
             <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
                     <h4 class="text-sm font-semibold">Live Feed</h4>
@@ -161,15 +156,13 @@
         </div>
 
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Appliance cards will be dynamically inserted here -->
-        </div>
+            </div>
         <button id="add-appliance-btn" class="fixed bottom-8 right-8 bg-secondary-accent text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-opacity-80 transition-colors">
             <i class="fas fa-plus mr-2"></i> Add Appliance
         </button>
     </div>
 
 
-    <!-- Room Settings Modal -->
     <div id="settings-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Edit Room Settings</h3>
@@ -192,7 +185,6 @@
         </div>
     </div>
 
-    <!-- Modals for adding rooms and appliances -->
     <div id="add-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Add New Room</h3>
@@ -207,7 +199,6 @@
         </div>
     </div>
 
-    <!-- Add Appliance Modal -->
     <div id="add-appliance-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Add New Appliance</h3>
@@ -224,7 +215,6 @@
         </div>
     </div>
 
-    <!-- Appliance Settings Modal -->
     <div id="settings-appliance-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Edit Appliance Settings</h3>
@@ -237,8 +227,7 @@
                 <div class="mt-4">
                     <label for="edit-room-selector" class="block text-text-card-foreground mb-2">Change Room:</label>
                     <select id="edit-room-selector" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none">
-                        <!-- Options will be populated by JS -->
-                    </select>
+                        </select>
                 </div>
 
                 <div class="mt-4">
@@ -260,7 +249,6 @@
         </div>
     </div>
 
-    <!-- Timer Modal -->
     <div id="timer-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Set Timer</h3>
@@ -295,7 +283,6 @@
         </div>
     </div>
 
-    <!-- General Purpose Confirmation Modal -->
     <div id="confirmation-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-[100]">
         <div class="bg-card p-6 rounded-lg shadow-xl w-80 max-w-sm mx-auto">
             <h3 id="confirmation-title" class="text-xl font-bold mb-4 text-text-card-foreground"></h3>
@@ -307,7 +294,6 @@
         </div>
     </div>
 
-    <!-- Webcam Container -->
     <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
             <h4 class="text-sm font-semibold">Live Feed</h4>
@@ -774,8 +760,8 @@
 
                 const toggleInput = applianceCard.querySelector('input[type="checkbox"]');
                 toggleInput.onchange = () => {
-                     const newState = toggleInput.checked;
-                     sendApplianceState(currentRoomId, appliance.id, newState);
+                    const newState = toggleInput.checked;
+                    sendApplianceState(currentRoomId, appliance.id, newState);
                 };
                 updateTimerDisplay(applianceCard, appliance);
             });
@@ -1088,6 +1074,9 @@
     };
 
     const initModalsAndListeners = () => {
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
         });
@@ -1185,7 +1174,7 @@
             if (hours > 0 || minutes > 0) {
                 const timerDurationMinutes = hours * 60 + minutes;
                 if (timerDurationMinutes > 0) {
-                     timerTimestamp = Math.floor(Date.now() / 1000) + timerDurationMinutes * 60;
+                    timerTimestamp = Math.floor(Date.now() / 1000) + timerDurationMinutes * 60;
                 }
             } else if (datetimeInput) {
                 const futureDate = new Date(datetimeInput);
