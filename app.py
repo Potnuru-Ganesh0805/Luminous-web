@@ -8,7 +8,9 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import paho.mqtt.client as mqtt
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_mail import Mail, Message
 import requests
+import base64
 
 # --- Application Setup ---
 app = Flask(__name__)
@@ -16,6 +18,14 @@ app.config['SECRET_KEY'] = 'your-super-secret-key'  # Change this in production
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'signin'
+
+# --- Flask-Mail Configuration ---
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = os.environ.get('MAIL_PORT')
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+mail = Mail(app)
 
 # --- Data File Paths ---
 USERS_FILE = 'users.json'
@@ -144,6 +154,27 @@ def load_analytics_data():
                     continue
     return data
 
+# --- Email Sending Logic ---
+def send_detection_email_thread(recipient, subject, body, image_data):
+    def send_email():
+        try:
+            msg = Message(subject, recipients=[recipient])
+            msg.body = body
+            
+            # Decode the base64 image and attach it
+            image_binary = base64.b64decode(image_data.split(',')[1])
+            msg.attach("detection_alert.png", "image/png", image_binary)
+            
+            mail.send(msg)
+            print(f"Email sent successfully to {recipient}")
+        except Exception as e:
+            print(f"Failed to send email: {e}")
+
+    email_thread = threading.Thread(target=send_email)
+    email_thread.daemon = True
+    email_thread.start()
+
+
 # --- Frontend Routes ---
 @app.route('/signin', methods=['GET', 'POST'])
 def signin():
@@ -165,10 +196,47 @@ def signin():
 def signup():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
+    
+    users = load_users()
+    if not users:
+        # Create a new default user if the users file is empty
+        new_user_id = "1"
+        default_user = {
+            'id': new_user_id,
+            'username': 'hi',
+            'password_hash': generate_password_hash('hello')
+        }
+        users.append(default_user)
+        save_users(users)
+        
+        # Create a new entry for the user in data.json
+        data = load_data()
+        data[new_user_id] = {
+            "user_settings": {
+                "name": "hi",
+                "email": "", "mobile": "", "channel": "email", "theme": "light", "ai_control_interval": 5
+            },
+            "rooms": [{
+                "id": "1",
+                "name": "Hall",
+                "ai_control": False,
+                "appliances": [
+                    {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None, "relay_number": 1},
+                    {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None, "relay_number": 2},
+                    {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None, "relay_number": 3},
+                    {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None, "relay_number": 4}
+                ]
+            }]
+        }
+        save_data(data)
+        
+        user_obj = User(default_user['id'], default_user['username'], default_user['password_hash'])
+        login_user(user_obj)
+        return redirect(url_for('home'))
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        users = load_users()
         if any(u['username'] == username for u in users):
             return render_template('signup.html', error='Username already exists.')
         
@@ -479,114 +547,6 @@ def save_appliance_order():
         save_user_data(user_data)
         
         return jsonify({"status": "success"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/get-rooms-and-appliances', methods=['GET'])
-@login_required
-def get_rooms_and_appliances():
-    try:
-        user_data = get_user_data()
-        return jsonify(user_data['rooms']), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/add-room', methods=['POST'])
-@login_required
-def add_room():
-    try:
-        room_name = request.json['name']
-        user_data = get_user_data()
-        new_room_id = str(len(user_data['rooms']) + 1)
-        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
-        save_user_data(user_data)
-        return jsonify({"status": "success", "room_id": new_room_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/update-room-settings', methods=['POST'])
-@login_required
-def update_room_settings():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        new_name = data_from_request.get('name')
-        ai_control = data_from_request.get('ai_control')
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-        
-        if new_name is not None:
-            room['name'] = new_name
-        if ai_control is not None:
-            room['ai_control'] = ai_control
-            # Additional logic to handle AI control toggle could go here
-
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "message": "Room settings updated."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-        
-@app.route('/api/delete-room', methods=['POST'])
-@login_required
-def delete_room():
-    try:
-        room_id = request.json['room_id']
-        user_data = get_user_data()
-        user_data['rooms'] = [r for r in user_data['rooms'] if r['id'] != room_id]
-        save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Room deleted."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/add-appliance', methods=['POST'])
-@login_required
-def add_appliance():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_name = data_from_request['name']
-        relay_number = data_from_request['relay_number']
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-            
-        new_appliance_id = str(len(room['appliances']) + 1)
-        room['appliances'].append({
-            "id": new_appliance_id,
-            "name": appliance_name,
-            "state": False,
-            "locked": False,
-            "timer": None,
-            "relay_number": int(relay_number)
-        })
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/delete-appliance', methods=['POST'])
-@login_required
-def delete_appliance():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_id = data_from_request['appliance_id']
-
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-
-        room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
-        save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Appliance deleted."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
