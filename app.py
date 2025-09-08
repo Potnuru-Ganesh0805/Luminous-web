@@ -157,18 +157,19 @@ def load_analytics_data():
 # --- Email Sending Logic ---
 def send_detection_email_thread(recipient, subject, body, image_data):
     def send_email():
-        try:
-            msg = Message(subject, recipients=[recipient])
-            msg.body = body
-            
-            # Decode the base64 image and attach it
-            image_binary = base64.b64decode(image_data.split(',')[1])
-            msg.attach("detection_alert.png", "image/png", image_binary)
-            
-            mail.send(msg)
-            print(f"Email sent successfully to {recipient}")
-        except Exception as e:
-            print(f"Failed to send email: {e}")
+        with app.app_context():
+            try:
+                msg = Message(subject, recipients=[recipient])
+                msg.body = body
+                
+                # Decode the base64 image and attach it
+                image_binary = base64.b64decode(image_data.split(',')[1])
+                msg.attach("detection_alert.png", "image/png", image_binary)
+                
+                mail.send(msg)
+                print(f"Email sent successfully to {recipient}")
+            except Exception as e:
+                print(f"Failed to send email: {e}")
 
     email_thread = threading.Thread(target=send_email)
     email_thread.daemon = True
@@ -550,6 +551,15 @@ def save_appliance_order():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/get-rooms-and-appliances', methods=['GET'])
+@login_required
+def get_rooms_and_appliances():
+    try:
+        user_data = get_user_data()
+        return jsonify(user_data['rooms']), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/add-room', methods=['POST'])
 @login_required
 def add_room():
@@ -648,15 +658,6 @@ def delete_appliance():
         room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
         save_user_data(user_data)
         return jsonify({"status": "success", "message": "Appliance deleted."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/get-rooms-and-appliances', methods=['GET'])
-@login_required
-def get_rooms_and_appliances():
-    try:
-        user_data = get_user_data()
-        return jsonify(user_data['rooms']), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
