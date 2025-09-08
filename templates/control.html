@@ -345,16 +345,16 @@
     const webcamCardContainer = document.getElementById('webcam-card-container');
     const closeWebcamBtn = document.getElementById('close-webcam-btn');
     const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
-    // AI Monitoring Logic
+    let aiControlInterval = 5000; // Default AI monitoring interval in milliseconds
     let modelLoaded = false;
-    
-    // Load the COCO-SSD model
+
     const loadModel = async () => {
+        // Check both possible model state indicators
         if (model || modelLoaded) return;
         try {
             showNotification('Loading AI model...', 'on');
             model = await cocoSsd.load();
-            modelLoaded = true;
+            modelLoaded = true; // Set both indicators for compatibility
             showNotification('AI model loaded successfully.', 'on');
             console.log('AI model loaded successfully.');
         } catch (error) {
@@ -373,7 +373,7 @@
             return;
         }
     
-        // Use monitoringVideo if available, fallback to monitoringVideoElement
+        // Support both video element naming conventions
         const videoElement = monitoringVideo || monitoringVideoElement;
         
         if (!videoElement || !videoElement.srcObject) {
@@ -382,20 +382,22 @@
             return;
         }
     
-        // Create canvas for detection - prefer dynamic sizing
-        let canvas;
+        // Handle canvas creation - prefer existing canvas, fallback to temporary
+        let canvas, ctx;
+        
         if (webcamCanvas && webcamCanvas.getContext) {
-            // Use existing canvas if available
+            // Use existing webcamCanvas if available
             canvas = webcamCanvas;
+            ctx = canvas.getContext('2d');
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
         } else {
-            // Create temporary canvas
+            // Create temporary canvas with video dimensions
             canvas = document.createElement('canvas');
             canvas.width = videoElement.videoWidth || 640;
             canvas.height = videoElement.videoHeight || 480;
+            ctx = canvas.getContext('2d');
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
         }
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
         
         try {
             const predictions = await model.detect(canvas);
@@ -429,7 +431,9 @@
         }
         
         if (isMonitoring) {
-            monitoringIntervalId = setTimeout(detectHumans, monitoringInterval || 3000);
+            // Use the configured interval variable (supports both naming conventions)
+            const intervalTime = aiControlInterval || monitoringInterval || 3000;
+            monitoringIntervalId = setTimeout(detectHumans, intervalTime);
         }
     };
     
@@ -461,59 +465,74 @@
         } else {
             // Start monitoring
             try {
-                if (!model) {
+                // Check model availability with both possible checks
+                if (!model && !modelLoaded) {
                     await loadModel();
-                    if (!model) {
+                    if (!model && !modelLoaded) {
                         showNotification('AI model failed to load.', 'off');
                         return;
                     }
                 }
     
-                // Get monitoring interval - try user settings first, fallback to prompt
+                // Get user settings for interval
                 let intervalInSeconds = 5; // default
                 try {
                     const userSettingsResponse = await fetch('/api/get-user-settings');
                     const userSettings = await userSettingsResponse.json();
                     intervalInSeconds = userSettings.ai_control_interval || 5;
                 } catch (settingsError) {
-                    // Fallback to prompt if user settings API fails
-                    const interval = prompt("Enter the time interval for AI monitoring (in seconds):");
-                    const parsedInterval = parseInt(interval);
-                    if (isNaN(parsedInterval) || parsedInterval <= 0) {
-                        showNotification('Invalid time interval. Monitoring not started.', 'off');
-                        return;
-                    }
-                    intervalInSeconds = parsedInterval;
+                    console.warn('Failed to load user settings, using default interval:', settingsError);
                 }
                 
-                monitoringInterval = intervalInSeconds * 1000;
-                
+                // Set interval with both variable names for compatibility
+                const intervalMs = intervalInSeconds * 1000;
+                aiControlInterval = intervalMs;
+                monitoringInterval = intervalMs;
+    
                 // Get webcam stream
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
                 monitoringStream = stream;
                 
-                // Create or use existing video element
+                // Create or get video element (support both naming conventions)
                 let videoElement = monitoringVideo || monitoringVideoElement;
+                
                 if (!videoElement) {
                     videoElement = document.createElement('video');
                     videoElement.style.display = 'none';
                     document.body.appendChild(videoElement);
-                    // Set reference for future use
-                    if (typeof monitoringVideo !== 'undefined') {
+                    
+                    // Assign to both possible variable names for compatibility
+                    if (typeof monitoringVideo !== 'undefined' || !monitoringVideoElement) {
                         monitoringVideo = videoElement;
-                    } else {
+                    } 
+                    if (typeof monitoringVideoElement !== 'undefined' || !monitoringVideo) {
                         monitoringVideoElement = videoElement;
                     }
                 }
                 
                 videoElement.srcObject = monitoringStream;
+                
+                // Wait for video to be ready
+                await new Promise((resolve, reject) => {
+                    videoElement.onloadedmetadata = resolve;
+                    videoElement.onerror = reject;
+                    setTimeout(() => reject(new Error('Video load timeout')), 5000);
+                });
+                
                 await videoElement.play();
                 
+                // Update UI
                 isMonitoring = true;
                 monitoringCard.classList.remove('hidden');
                 monitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
                 showNotification('AI monitoring started.', 'on');
                 
+                // Update room settings
                 if(currentRoomId) {
                     await fetch('/api/update-room-settings', {
                         method: 'POST',
@@ -522,39 +541,155 @@
                     });
                 }
                
-                videoElement.onloadedmetadata = () => {
-                    monitoringIntervalId = setTimeout(detectHumans, monitoringInterval);
-                };
+                // Start detection with the configured interval
+                monitoringIntervalId = setTimeout(detectHumans, intervalMs);
+                
             } catch (err) {
                 console.error("Error accessing webcam for monitoring:", err);
-                showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
+                
+                // Enhanced error messages
+                let errorMessage = 'Failed to access webcam for monitoring.';
+                if (err.name === 'NotAllowedError') {
+                    errorMessage = 'Camera permission denied. Please allow camera access for monitoring.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMessage = 'No camera found for monitoring.';
+                } else if (err.name === 'NotReadableError') {
+                    errorMessage = 'Camera is in use by another application.';
+                } else if (err.message === 'Video load timeout') {
+                    errorMessage = 'Camera took too long to initialize.';
+                }
+                
+                showNotification(errorMessage, 'off');
+                
+                // Cleanup any partial streams
+                if (monitoringStream) {
+                    monitoringStream.getTracks().forEach(track => track.stop());
+                    monitoringStream = null;
+                }
                 return;
             }
         }
     };
-    
+
     const toggleWebcam = async () => {
         if (webcamStream) {
+            // Stop webcam
             webcamStream.getTracks().forEach(track => track.stop());
             webcamStream = null;
+            
+            // Clear video source
+            if (liveWebcamVideo) {
+                liveWebcamVideo.srcObject = null;
+            }
+            
+            // Update UI
             webcamCardContainer.classList.add('hidden');
             webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
             showNotification('Webcam turned off.', 'on');
+            
+            console.log('Webcam stream stopped successfully.');
         } else {
+            // Start webcam
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                webcamStream = stream;
+                // Check for media devices support (enhanced version feature)
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('MediaDevices API not supported');
+                }
+                
+                // Request stream with enhanced quality settings when possible
+                let videoConstraints = { video: true }; // Basic fallback
+                
+                try {
+                    // Try enhanced quality first
+                    videoConstraints = {
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    };
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia(videoConstraints);
+                    webcamStream = stream;
+                } catch (qualityError) {
+                    // Fallback to basic video if enhanced quality fails
+                    console.warn('High quality video failed, falling back to basic video:', qualityError);
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    webcamStream = stream;
+                }
+                
+                // Ensure video element exists (enhanced version feature)
+                if (!liveWebcamVideo) {
+                    console.error('Live webcam video element not found');
+                    showNotification('Webcam video element not found.', 'off');
+                    // Cleanup stream
+                    webcamStream.getTracks().forEach(track => track.stop());
+                    webcamStream = null;
+                    return;
+                }
+                
                 liveWebcamVideo.srcObject = webcamStream;
+                
+                // Enhanced loading with timeout (enhanced version feature)
+                try {
+                    await new Promise((resolve, reject) => {
+                        const timeoutId = setTimeout(() => {
+                            reject(new Error('Video load timeout'));
+                        }, 5000); // 5 second timeout
+                        
+                        liveWebcamVideo.onloadedmetadata = () => {
+                            clearTimeout(timeoutId);
+                            resolve();
+                        };
+                        
+                        liveWebcamVideo.onerror = (err) => {
+                            clearTimeout(timeoutId);
+                            reject(err);
+                        };
+                    });
+                } catch (loadError) {
+                    console.warn('Video metadata loading failed, proceeding anyway:', loadError);
+                }
+                
+                // Update UI
                 webcamCardContainer.classList.remove('hidden');
                 webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
                 showNotification('Webcam turned on.', 'on');
+                
+                console.log('Webcam stream started successfully.');
+                
             } catch (err) {
                 console.error("Error accessing webcam:", err);
-                showNotification('Failed to access webcam. Please check permissions.', 'off');
+                
+                // Enhanced error messages (enhanced version feature)
+                let errorMessage = 'Failed to access webcam.';
+                if (err.name === 'NotAllowedError') {
+                    errorMessage = 'Camera permission denied. Please allow camera access.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMessage = 'No camera found on this device.';
+                } else if (err.name === 'NotReadableError') {
+                    errorMessage = 'Camera is already in use by another application.';
+                } else if (err.name === 'OverconstrainedError') {
+                    errorMessage = 'Camera does not support requested quality. Please try again.';
+                } else if (err.message === 'MediaDevices API not supported') {
+                    errorMessage = 'Your browser does not support camera access.';
+                } else if (err.message === 'Video load timeout') {
+                    errorMessage = 'Camera took too long to initialize.';
+                } else {
+                    // Fallback to basic message for unknown errors (basic version approach)
+                    errorMessage = 'Failed to access webcam. Please check permissions.';
+                }
+                
+                showNotification(errorMessage, 'off');
+                
+                // Cleanup any partial stream
+                if (webcamStream) {
+                    webcamStream.getTracks().forEach(track => track.stop());
+                    webcamStream = null;
+                }
             }
         }
     };
-
+    
     const stopAllStreams = () => {
         if (webcamStream) {
             webcamStream.getTracks().forEach(track => track.stop());
