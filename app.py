@@ -542,6 +542,35 @@ def delete_room():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/add-appliance', methods=['POST'])
+@login_required
+def add_appliance():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_name = data_from_request['name']
+        relay_number = data_from_request['relay_number']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        new_appliance_id = str(len(room['appliances']) + 1)
+        room['appliances'].append({
+            "id": new_appliance_id,
+            "name": appliance_name,
+            "state": False,
+            "locked": False,
+            "timer": None,
+            "relay_number": int(relay_number)
+        })
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/delete-appliance', methods=['POST'])
 @login_required
 def delete_appliance():
@@ -645,6 +674,44 @@ def change_password():
             return jsonify({"status": "success", "message": "Password updated successfully."}), 200
         else:
             return jsonify({"status": "error", "message": "Invalid old password."}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/ai-detection-signal', methods=['POST'])
+@login_required
+def ai_detection_signal():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        state = data_from_request['state']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        # Turn on/off all unlocked appliances in the room
+        for appliance in room['appliances']:
+            if not appliance['locked']:
+                appliance['state'] = state
+        
+        # Update last command for ESP32 and save data
+        user_data['last_command'] = {
+            "room_id": room_id,
+            "state": state,
+            "timestamp": int(time.time())
+        }
+        
+        save_user_data(user_data)
+
+        # Publish MQTT message for AI control
+        if mqtt_client:
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:all:ai:{int(state)}")
+
+        action = "activated" if state else "deactivated"
+        message = f"AI control for room '{room['name']}' has been {action}."
+        
+        return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
