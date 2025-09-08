@@ -347,6 +347,7 @@
     const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
     let aiControlInterval = 5000; // Default AI monitoring interval in milliseconds
     let modelLoaded = false;
+    let lastEmailTime = null;
 
     const loadModel = async () => {
         // Check both possible model state indicators
@@ -391,34 +392,39 @@
                 console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
                 monitoringStatus.textContent = 'Human detected! AI is in control.';
                 
-                // Draw bounding boxes on a new canvas for the email alert
-                const alertCanvas = document.createElement('canvas');
-                alertCanvas.width = monitoringVideoElement.videoWidth;
-                alertCanvas.height = monitoringVideoElement.videoHeight;
-                const alertCtx = alertCanvas.getContext('2d');
-                alertCtx.drawImage(monitoringVideoElement, 0, 0, alertCanvas.width, alertCanvas.height);
-                
-                alertCtx.strokeStyle = 'red';
-                alertCtx.lineWidth = 4;
-                humanDetections.forEach(p => {
-                    const [x, y, width, height] = p.bbox;
-                    alertCtx.strokeRect(x, y, width, height);
-                });
-                
-                // Convert the annotated image to base64
-                const imageData = alertCanvas.toDataURL('image/png');
+                // Check if 10 minutes have passed since the last email
+                if (lastEmailTime === null || (Date.now() - lastEmailTime) > 600000) {
+                    const roomName = allRoomsData.find(r => r.id === currentRoomId)?.name || 'Unknown Room';
 
-                if(currentRoomId) {
+                    // Draw bounding boxes on a new canvas for the email alert
+                    const alertCanvas = document.createElement('canvas');
+                    alertCanvas.width = monitoringVideoElement.videoWidth;
+                    alertCanvas.height = monitoringVideoElement.videoHeight;
+                    const alertCtx = alertCanvas.getContext('2d');
+                    alertCtx.drawImage(monitoringVideoElement, 0, 0, alertCanvas.width, alertCanvas.height);
+                    
+                    alertCtx.strokeStyle = 'red';
+                    alertCtx.lineWidth = 4;
+                    humanDetections.forEach(p => {
+                        const [x, y, width, height] = p.bbox;
+                        alertCtx.strokeRect(x, y, width, height);
+                    });
+                    
+                    const imageData = alertCanvas.toDataURL('image/png');
+
                     await fetch('/api/ai-detection-signal', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ room_id: currentRoomId, state: true })
                     });
-                     await fetch('/api/send-detection-email', {
+
+                    await fetch('/api/send-detection-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_name: allRoomsData.find(r => r.id === currentRoomId)?.name, image_data: imageData })
+                        body: JSON.stringify({ room_name: roomName, image_data: imageData })
                     });
+                    
+                    lastEmailTime = Date.now();
                 }
             } else {
                 console.log("notfound");
