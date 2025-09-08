@@ -344,32 +344,6 @@ def get_rooms_and_appliances():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/update-room-settings', methods=['POST'])
-@login_required
-def update_room_settings():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        new_name = data_from_request.get('name')
-        ai_control = data_from_request.get('ai_control')
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-        
-        if new_name is not None:
-            room['name'] = new_name
-        if ai_control is not None:
-            room['ai_control'] = ai_control
-            # Additional logic to handle AI control toggle could go here
-
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "message": "Room settings updated."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/api/delete-room', methods=['POST'])
 @login_required
 def delete_room():
@@ -591,19 +565,6 @@ def save_appliance_order():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/add-room', methods=['POST'])
-@login_required
-def add_room():
-    try:
-        data_from_request = request.json
-        room_name = data_from_request['name']
-        user_data = get_user_data()
-        new_room_id = str(len(user_data['rooms']) + 1)
-        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
-        save_user_data(user_data)
-        return jsonify({"status": "success", "room_id": new_room_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/update-room-settings', methods=['POST'])
 @login_required
@@ -630,19 +591,7 @@ def update_room_settings():
         return jsonify({"status": "success", "message": "Room settings updated."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-        
-@app.route('/api/delete-room', methods=['POST'])
-@login_required
-def delete_room():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        user_data = get_user_data()
-        user_data['rooms'] = [r for r in user_data['rooms'] if r['id'] != room_id]
-        save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Room deleted."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    
 
 @app.route('/api/add-appliance', methods=['POST'])
 @login_required
