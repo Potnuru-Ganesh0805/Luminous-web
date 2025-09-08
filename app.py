@@ -622,25 +622,6 @@ def add_appliance():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/delete-appliance', methods=['POST'])
-@login_required
-def delete_appliance():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_id = data_from_request['appliance_id']
-
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-
-        room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
-        save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Appliance deleted."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/api/get-analytics', methods=['GET'])
 @login_required
 def get_analytics():
