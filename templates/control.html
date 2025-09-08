@@ -339,35 +339,6 @@
     const confirmationModal = document.getElementById('confirmation-modal');
     const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
 
-    // Utility functions
-    const showNotification = (message, type) => {
-        // This function should be defined elsewhere in the application
-        console.log(`${type.toUpperCase()}: ${message}`);
-    };
-
-    const openConfirmationModal = (action, ...data) => {
-        currentAction = action;
-        currentData = data;
-        const title = document.getElementById('confirmation-title');
-        const message = document.getElementById('confirmation-message');
-        
-        switch (action) {
-            case 'delete-room':
-                title.textContent = 'Delete Room';
-                message.textContent = 'Are you sure you want to delete this room? This action cannot be undone.';
-                break;
-            case 'delete-appliance':
-                title.textContent = 'Delete Appliance';
-                message.textContent = 'Are you sure you want to delete this appliance? This action cannot be undone.';
-                break;
-            case 'cancel-timer':
-                title.textContent = 'Cancel Timer';
-                message.textContent = 'Are you sure you want to cancel the timer for this appliance?';
-                break;
-        }
-        confirmationModal.classList.remove('hidden');
-    };
-
     // API functions
     const saveNewRoomOrder = async (newOrder) => {
         try {
