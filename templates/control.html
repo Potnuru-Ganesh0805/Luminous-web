@@ -346,8 +346,30 @@
     const closeWebcamBtn = document.getElementById('close-webcam-btn');
     const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
 
+    // Assume these variables are declared in a higher scope:
+    // let model;
+    // let isMonitoring = false;
+    // let monitoringStream, webcamStream;
+    // let monitoringVideoElement, liveWebcamVideo;
+    // let monitoringIntervalId, monitoringInterval;
+    // let currentRoomId;
+    //
+    // Assume these DOM elements are also available:
+    // const monitoringCard = document.getElementById('monitoring-card');
+    // const monitoringBtn = document.getElementById('monitoring-btn');
+    // const monitoringStatus = document.getElementById('monitoring-status');
+    // const webcamCardContainer = document.getElementById('webcam-card-container');
+    // const webcamBtn = document.getElementById('webcam-btn');
+    //
+    // Assume a notification function exists:
+    // const showNotification = (message, type) => { /* implementation */ };
+    
+    /**
+     * Loads the COCO-SSD model for object detection.
+     * This version ensures the model is loaded only once and includes console logging for debugging.
+     */
     const loadModel = async () => {
-        // Return early if the model is already loaded.
+        // Return early if the model object already exists.
         if (model) return;
     
         try {
@@ -362,8 +384,8 @@
     };
     
     /**
-     * Detects humans in the video stream using the loaded model.
-     * This function runs in a loop while monitoring is active.
+     * Detects humans in the video stream and sends signals to a backend API.
+     * This function runs in a loop at a user-defined interval.
      */
     const detectHumans = async () => {
         // Stop if monitoring is turned off or the model isn't ready.
@@ -420,7 +442,7 @@
             monitoringStatus.textContent = 'Error during detection.';
         }
     
-        // Continue the detection loop if monitoring is still active.
+        // Continue the detection loop if monitoring is still active using the dynamic interval.
         if (isMonitoring) {
             monitoringIntervalId = setTimeout(detectHumans, monitoringInterval);
         }
@@ -437,7 +459,6 @@
             monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
             showNotification('AI monitoring stopped.', 'on');
     
-            // Clear the detection loop and stop the camera stream.
             clearTimeout(monitoringIntervalId);
             monitoringIntervalId = null;
             if (monitoringStream) {
@@ -456,10 +477,9 @@
         } else {
             // --- START MONITORING ---
             try {
-                // Load the model if it hasn't been loaded yet.
                 if (!model) {
                     await loadModel();
-                    if (!model) { // Check again in case loading failed.
+                    if (!model) {
                         showNotification('AI model failed to load. Cannot start monitoring.', 'off');
                         return;
                     }
@@ -472,11 +492,9 @@
                     return;
                 }
     
-                // Get access to the user's webcam.
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 monitoringStream = stream;
     
-                // Create a hidden video element to process the stream if it doesn't exist.
                 if (!monitoringVideoElement) {
                     monitoringVideoElement = document.createElement('video');
                     monitoringVideoElement.style.display = 'none';
@@ -485,7 +503,6 @@
                 monitoringVideoElement.srcObject = monitoringStream;
                 await monitoringVideoElement.play();
     
-                // Wait for the video metadata to load to get correct dimensions.
                 monitoringVideoElement.onloadedmetadata = async () => {
                     isMonitoring = true;
                     monitoringCard.classList.remove('hidden');
@@ -493,7 +510,6 @@
                     showNotification('AI monitoring started.', 'on');
                     monitoringInterval = parsedInterval * 1000;
     
-                    // Update the backend that AI control is on.
                     if (currentRoomId) {
                         await fetch('/api/update-room-settings', {
                             method: 'POST',
@@ -502,8 +518,7 @@
                         });
                     }
                     
-                    // Start the detection loop.
-                    detectHumans();
+                    detectHumans(); // Start the detection loop.
                 };
             } catch (err) {
                 console.error("Error accessing webcam for monitoring:", err);
@@ -511,30 +526,26 @@
             }
         }
     };
-
+    
+    /**
+     * Toggles the user's live webcam view on or off.
+     */
     const toggleWebcam = async () => {
-        // Get references to the DOM elements.
-        const webcamCardContainer = document.getElementById('webcam-card-container');
-        const liveWebcamVideo = document.getElementById('webcam-video-live');
+        // Get a reference to the video element for live display.
+        liveWebcamVideo = liveWebcamVideo || document.getElementById('webcam-video-live');
     
         if (webcamStream) {
             // --- TURN WEBCAM OFF ---
-            // Stop each video track in the stream.
             webcamStream.getTracks().forEach(track => track.stop());
             webcamStream = null;
-    
-            // Update the UI.
             webcamCardContainer.classList.add('hidden');
             webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
             showNotification('Webcam turned off.', 'on');
         } else {
             // --- TURN WEBCAM ON ---
             try {
-                // Request access to the user's webcam.
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 webcamStream = stream;
-    
-                // Display the stream in the video element and update the UI.
                 liveWebcamVideo.srcObject = webcamStream;
                 webcamCardContainer.classList.remove('hidden');
                 webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
@@ -545,8 +556,6 @@
             }
         }
     };
-
-    
     const stopAllStreams = () => {
         if (webcamStream) {
             webcamStream.getTracks().forEach(track => track.stop());
@@ -1033,7 +1042,27 @@
     });
 
     // Webcam Logic
-    
+    const toggleWebcam = async () => {
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => track.stop());
+            webcamStream = null;
+            webcamCardContainer.classList.add('hidden');
+            webcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
+            showNotification('Webcam turned off.', 'on');
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamStream = stream;
+                liveWebcamVideo.srcObject = webcamStream;
+                webcamCardContainer.classList.remove('hidden');
+                webcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
+                showNotification('Webcam turned on.', 'on');
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                showNotification('Failed to access webcam. Please check permissions.', 'off');
+            }
+        }
+    };
 
     // Close webcam when navigating away
     window.addEventListener('beforeunload', () => {
@@ -1047,6 +1076,7 @@
 
     // AI Monitoring Logic
     let modelLoaded = false;
+
     
     
     document.getElementById('start-monitoring-btn').addEventListener('click', toggleMonitoring);
