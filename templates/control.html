@@ -372,46 +372,52 @@
             }
             return;
         }
-    
-        // Support both video element naming conventions
-        const videoElement = monitoringVideo || monitoringVideoElement;
-        
-        if (!videoElement || !videoElement.srcObject) {
+
+        if (!monitoringVideoElement.srcObject) {
             console.log("Monitoring stream not available, stopping detection.");
             toggleMonitoring();
             return;
         }
-    
-        // Handle canvas creation - prefer existing canvas, fallback to temporary
-        let canvas, ctx;
-        
-        if (webcamCanvas && webcamCanvas.getContext) {
-            // Use existing webcamCanvas if available
-            canvas = webcamCanvas;
-            ctx = canvas.getContext('2d');
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        } else {
-            // Create temporary canvas with video dimensions
-            canvas = document.createElement('canvas');
-            canvas.width = videoElement.videoWidth || 640;
-            canvas.height = videoElement.videoHeight || 480;
-            ctx = canvas.getContext('2d');
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        }
+
+        const ctx = webcamCanvas.getContext('2d');
+        ctx.drawImage(monitoringVideoElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
         
         try {
-            const predictions = await model.detect(canvas);
+            const predictions = await model.detect(webcamCanvas);
             const humanDetected = predictions.some(p => p.class === 'person');
-    
+
             if (humanDetected) {
                 const humanDetections = predictions.filter(p => p.class === 'person');
                 console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
                 monitoringStatus.textContent = 'Human detected! AI is in control.';
+                
+                // Draw bounding boxes on a new canvas for the email alert
+                const alertCanvas = document.createElement('canvas');
+                alertCanvas.width = monitoringVideoElement.videoWidth;
+                alertCanvas.height = monitoringVideoElement.videoHeight;
+                const alertCtx = alertCanvas.getContext('2d');
+                alertCtx.drawImage(monitoringVideoElement, 0, 0, alertCanvas.width, alertCanvas.height);
+                
+                alertCtx.strokeStyle = 'red';
+                alertCtx.lineWidth = 4;
+                humanDetections.forEach(p => {
+                    const [x, y, width, height] = p.bbox;
+                    alertCtx.strokeRect(x, y, width, height);
+                });
+                
+                // Convert the annotated image to base64
+                const imageData = alertCanvas.toDataURL('image/png');
+
                 if(currentRoomId) {
                     await fetch('/api/ai-detection-signal', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ room_id: currentRoomId, state: true })
+                    });
+                     await fetch('/api/send-detection-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_name: allRoomsData.find(r => r.id === currentRoomId)?.name, image_data: imageData })
                     });
                 }
             } else {
@@ -431,11 +437,11 @@
         }
         
         if (isMonitoring) {
-            // Use the configured interval variable (supports both naming conventions)
-            const intervalTime = aiControlInterval || monitoringInterval || 3000;
-            monitoringIntervalId = setTimeout(detectHumans, intervalTime);
+             monitoringIntervalId = setTimeout(detectHumans, aiControlInterval);
         }
     };
+
+    
     
     const toggleMonitoring = async () => {
         if (isMonitoring) {
