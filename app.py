@@ -334,6 +334,85 @@ def check_in():
     
     return jsonify({}), 200
 
+@app.route('/api/get-rooms-and-appliances', methods=['GET'])
+@login_required
+def get_rooms_and_appliances():
+    try:
+        user_data = get_user_data()
+        return jsonify(user_data['rooms']), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/update-room-settings', methods=['POST'])
+@login_required
+def update_room_settings():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        new_name = data_from_request.get('name')
+        ai_control = data_from_request.get('ai_control')
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        if new_name is not None:
+            room['name'] = new_name
+        if ai_control is not None:
+            room['ai_control'] = ai_control
+            # Additional logic to handle AI control toggle could go here
+
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "message": "Room settings updated."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete-room', methods=['POST'])
+@login_required
+def delete_room():
+    try:
+        room_id = request.json['room_id']
+        user_data = get_user_data()
+        user_data['rooms'] = [r for r in user_data['rooms'] if r['id'] != room_id]
+        save_user_data(user_data)
+        return jsonify({"status": "success", "message": "Room deleted."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete-appliance', methods=['POST'])
+@login_required
+def delete_appliance():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+
+        room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
+        save_user_data(user_data)
+        return jsonify({"status": "success", "message": "Appliance deleted."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/add-room', methods=['POST'])
+@login_required
+def add_room():
+    try:
+        room_name = request.json['name']
+        user_data = get_user_data()
+        new_room_id = str(len(user_data['rooms']) + 1)
+        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
+        save_user_data(user_data)
+        return jsonify({"status": "success", "room_id": new_room_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/set-appliance-state', methods=['POST'])
 @login_required
 def set_appliance_state():
@@ -521,7 +600,8 @@ def set_timer():
 @login_required
 def save_room_order():
     try:
-        new_order_ids = request.json['order']
+        data_from_request = request.json
+        new_order_ids = data_from_request['order']
         user_data = get_user_data()
         room_map = {room['id']: room for room in user_data['rooms']}
         user_data['rooms'] = [room_map[id] for id in new_order_ids]
@@ -548,116 +628,6 @@ def save_appliance_order():
         save_user_data(user_data)
         
         return jsonify({"status": "success"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/get-rooms-and-appliances', methods=['GET'])
-@login_required
-def get_rooms_and_appliances():
-    try:
-        user_data = get_user_data()
-        return jsonify(user_data['rooms']), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/add-room', methods=['POST'])
-@login_required
-def add_room():
-    try:
-        data_from_request = request.json
-        room_name = data_from_request['name']
-        user_data = get_user_data()
-        new_room_id = str(len(user_data['rooms']) + 1)
-        user_data['rooms'].append({"id": new_room_id, "name": room_name, "ai_control": False, "appliances": []})
-        save_user_data(user_data)
-        return jsonify({"status": "success", "room_id": new_room_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/update-room-settings', methods=['POST'])
-@login_required
-def update_room_settings():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        new_name = data_from_request.get('name')
-        ai_control = data_from_request.get('ai_control')
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-        
-        if new_name is not None:
-            room['name'] = new_name
-        if ai_control is not None:
-            room['ai_control'] = ai_control
-            # Additional logic to handle AI control toggle could go here
-
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "message": "Room settings updated."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-        
-@app.route('/api/delete-room', methods=['POST'])
-@login_required
-def delete_room():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        user_data = get_user_data()
-        user_data['rooms'] = [r for r in user_data['rooms'] if r['id'] != room_id]
-        save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Room deleted."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/add-appliance', methods=['POST'])
-@login_required
-def add_appliance():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_name = data_from_request['name']
-        relay_number = data_from_request['relay_number']
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-            
-        new_appliance_id = str(len(room['appliances']) + 1)
-        room['appliances'].append({
-            "id": new_appliance_id,
-            "name": appliance_name,
-            "state": False,
-            "locked": False,
-            "timer": None,
-            "relay_number": int(relay_number)
-        })
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/delete-appliance', methods=['POST'])
-@login_required
-def delete_appliance():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_id = data_from_request['appliance_id']
-
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-
-        room['appliances'] = [a for a in room['appliances'] if a['id'] != appliance_id]
-        save_user_data(user_data)
-        return jsonify({"status": "success", "message": "Appliance deleted."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -783,6 +753,41 @@ def ai_detection_signal():
         message = f"AI control for room '{room['name']}' has been {action}."
         
         return jsonify({"status": "success", "message": message}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/send-detection-email', methods=['POST'])
+@login_required
+def send_detection_email():
+    try:
+        data_from_request = request.json
+        room_name = data_from_request['room_name']
+        image_data = data_from_request['image_data']
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        user_data = get_user_data()
+        recipient_email = user_data['user_settings']['email']
+
+        if not recipient_email:
+            return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
+
+        subject = "Luminous Home System Alert: Motion Detected!"
+        body = f"""
+        Dear {current_user.username},
+
+        This is an automated alert from your Luminous Home System.
+
+        Motion has been detected in your room: {room_name}
+        Time of detection: {timestamp}
+
+        Something is a bit fishy.
+        """
+        
+        # Send the email in a separate thread to prevent blocking
+        send_detection_email_thread(recipient_email, subject, body, image_data)
+
+        return jsonify({"status": "success", "message": "Email alert sent."}), 200
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
