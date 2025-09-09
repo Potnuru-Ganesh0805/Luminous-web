@@ -348,6 +348,9 @@
     let aiControlInterval = 5000; // Default AI monitoring interval in milliseconds
     let modelLoaded = false;
     let lastEmailTime = null;
+    let globalMonitoring = sessionStorage.getItem('globalMonitoring') === 'true';
+    let globalMonitoringIntervalId = null;
+    let globalWebcamStream = null;
 
     const loadModel = async () => {
         // Check both possible model state indicators
@@ -394,7 +397,72 @@
         canvas.width = videoElement.videoWidth || 640;
         canvas.height = videoElement.videoHeight || 480;
     }
+
+
+    const toggleGlobalMonitoring = async () => {
+        if (globalMonitoring) {
+            globalMonitoring = false;
+            sessionStorage.setItem('globalMonitoring', 'false');
+            stopMonitoringStream('global');
+            showNotification('Global monitoring stopped.', 'on');
+        } else {
+            const userSettingsResponse = await fetch('/api/get-user-settings');
+            const userSettings = await userSettingsResponse.json();
+            const intervalInSeconds = userSettings.ai_control_interval || 5;
+            const monitoringInterval = intervalInSeconds * 1000;
+            
+            startMonitoringStream('global', monitoringInterval);
+            globalMonitoring = true;
+            sessionStorage.setItem('globalMonitoring', 'true');
+            showNotification('Global monitoring started.', 'on');
+        }
+        updateGlobalMonitoringUI();
+    };
+
+    const toggleGlobalWebcam = async () => {
+        if (globalWebcamStream) {
+            globalWebcamStream.getTracks().forEach(track => track.stop());
+            globalWebcamStream = null;
+            webcamCardContainer.classList.add('hidden');
+            globalWebcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
+            showNotification('Webcam turned off.', 'on');
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                globalWebcamStream = stream;
+                liveWebcamVideo.srcObject = globalWebcamStream;
+                webcamCardContainer.classList.remove('hidden');
+                globalWebcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
+                showNotification('Webcam turned on.', 'on');
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                showNotification('Failed to access webcam. Please check permissions.', 'off');
+            }
+        }
+    };
     
+    document.getElementById('global-start-monitoring-btn').addEventListener('click', toggleGlobalMonitoring);
+    document.getElementById('global-open-webcam-btn').addEventListener('click', toggleGlobalWebcam);
+    
+    // Function to update the UI state of the global monitoring buttons
+    const updateGlobalMonitoringUI = () => {
+        if (globalMonitoring) {
+            globalMonitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
+            globalMonitoringBtn.classList.add('animate-pulse');
+            document.querySelectorAll('#appliance-container #start-monitoring-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('opacity-50');
+            });
+        } else {
+            globalMonitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
+            globalMonitoringBtn.classList.remove('animate-pulse');
+            document.querySelectorAll('#appliance-container #start-monitoring-btn').forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+            });
+        }
+    };
+        
     // Ensure proper canvas dimensions
     const videoWidth = videoElement.videoWidth || 640;
     const videoHeight = videoElement.videoHeight || 480;
