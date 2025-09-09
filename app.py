@@ -312,6 +312,34 @@ def check_in():
         return jsonify(last_command), 200
     
     return jsonify({}), 200
+@app.route('/api/add-appliance', methods=['POST'])
+@login_required
+def add_appliance():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_name = data_from_request['name']
+        relay_number = data_from_request['relay_number']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+        new_appliance_id = str(len(room['appliances']) + 1)
+        room['appliances'].append({
+            "id": new_appliance_id,
+            "name": appliance_name,
+            "state": False,
+            "locked": False,
+            "timer": None,
+            "relay_number": int(relay_number)
+        })
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/get-rooms-and-appliances', methods=['GET'])
 @login_required
