@@ -1033,24 +1033,119 @@
         }
     });
 
-    const sendApplianceState = async (roomId, applianceId, state) => {
-        try {
-            const response = await fetch('/api/set-appliance-state', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, state: state })
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showNotification(result.message, state ? 'on' : 'off');
-                fetchRoomsAndAppliances();
-            } else {
-                showNotification(`Error: ${result.message}`, 'off');
-            }
-        } catch (error) {
-            console.error(error);
-            showNotification('Failed to send command.', 'off');
+    // Universal Confirmation Modal Logic
+let currentAction = null;
+let currentData = null;
+
+    const openConfirmationModal = (action, ...data) => {
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmationTitle = document.getElementById('confirmation-title');
+        const confirmationMessage = document.getElementById('confirmation-message');
+        const confirmActionBtn = document.getElementById('confirm-action-btn');
+        const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+    
+        currentAction = action;
+        currentData = data;
+        
+        // Set title and message based on action
+        switch(action) {
+            case 'delete-room':
+                confirmationTitle.textContent = 'Delete Room';
+                confirmationMessage.textContent = 'Are you sure you want to delete this room? This action cannot be undone and will also delete all appliances in this room.';
+                confirmActionBtn.textContent = 'Delete Room';
+                confirmActionBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors';
+                break;
+            case 'delete-appliance':
+                confirmationTitle.textContent = 'Delete Appliance';
+                confirmationMessage.textContent = 'Are you sure you want to delete this appliance? This action cannot be undone.';
+                confirmActionBtn.textContent = 'Delete Appliance';
+                confirmActionBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors';
+                break;
+            case 'cancel-timer':
+                confirmationTitle.textContent = 'Cancel Timer';
+                confirmationMessage.textContent = 'Are you sure you want to cancel the timer for this appliance?';
+                confirmActionBtn.textContent = 'Cancel Timer';
+                confirmActionBtn.className = 'px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors';
+                break;
+            default:
+                confirmationTitle.textContent = 'Confirm Action';
+                confirmationMessage.textContent = 'Are you sure you want to proceed?';
+                confirmActionBtn.textContent = 'Confirm';
+                confirmActionBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors';
         }
+        
+        confirmationModal.classList.remove('hidden');
+    
+        confirmActionBtn.onclick = async () => {
+            confirmationModal.classList.add('hidden');
+            if (currentAction === 'delete-room') {
+                const [roomId] = currentData;
+                try {
+                    const response = await fetch('/api/delete-room', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_id: roomId })
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showNotification('Room deleted successfully!', 'on');
+                        fetchRoomsAndAppliances();
+                    } else {
+                        showNotification(`Error: ${result.message}`, 'off');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showNotification('Failed to delete room.', 'off');
+                }
+            } else if (currentAction === 'delete-appliance') {
+                const [roomId, applianceId] = currentData;
+                try {
+                    const response = await fetch('/api/delete-appliance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_id: roomId, appliance_id: applianceId })
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showNotification('Appliance deleted successfully!', 'on');
+                        document.getElementById('settings-appliance-modal').classList.add('hidden');
+                        fetchRoomsAndAppliances();
+                    } else {
+                        showNotification(`Error: ${result.message}`, 'off');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showNotification('Failed to delete appliance.', 'off');
+                }
+            } else if (currentAction === 'cancel-timer') {
+                const [roomId, applianceId] = currentData;
+                try {
+                    const response = await fetch('/api/set-timer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, timer: null })
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showNotification('Timer cancelled.', 'on');
+                        fetchRoomsAndAppliances();
+                    } else {
+                        showNotification(`Error: ${result.message}`, 'off');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showNotification('Failed to cancel timer.', 'off');
+                }
+            }
+            currentAction = null;
+            currentData = null;
+        };
+    
+        confirmCancelBtn.addEventListener('click', () => {
+            confirmationModal.classList.add('hidden');
+            currentAction = null;
+            currentData = null;
+        });
     };
 
     const saveApplianceName = async (inputElement) => {
@@ -1310,8 +1405,6 @@
         const confirmationModal = document.getElementById('confirmation-modal');
         const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
         const confirmActionBtn = document.getElementById('confirm-action-btn');
-        let currentAction = null;
-        let currentData = null;
         
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
