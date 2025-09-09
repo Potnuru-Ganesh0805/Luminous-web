@@ -155,60 +155,6 @@ def load_analytics_data():
                     continue
     return data
 
-# --- Email Sending Logic ---
-def send_detection_email_thread(recipient, subject, body, image_data):
-    """Send email in a separate thread to prevent blocking."""
-    def send_email():
-        with app.app_context():
-            print(f"Preparing to send email to {recipient}...")
-            try:
-                # Basic validation
-                if not recipient or not subject or not body:
-                    print("Email sending failed: Missing required fields")
-                    return
-                
-                # Create message with proper sender configuration
-                msg = Message(
-                    subject=subject,
-                    recipients=[recipient],
-                    sender=app.config['MAIL_DEFAULT_SENDER']
-                )
-                msg.html = body
-                
-                # Handle image attachment if provided
-                if image_data:
-                    try:
-                        # Decode the base64 image and attach it
-                        if ',' in image_data:
-                            image_binary = base64.b64decode(image_data.split(',')[1])
-                        else:
-                            image_binary = base64.b64decode(image_data)
-                        
-                        msg.attach(
-                            "detection_alert.png", 
-                            "image/png", 
-                            image_binary, 
-                            'inline', 
-                            headers=[('Content-ID', '<myimage>')]
-                        )
-                    except Exception as img_error:
-                        print(f"Error processing image attachment: {img_error}")
-                        # Continue without attachment if image processing fails
-                
-                # Send the email
-                mail.send(msg)
-                print(f"Email sent successfully to {recipient}!")
-                
-            except Exception as e:
-                # Log the exception for debugging
-                print(f"Error sending email: {e}")
-
-    # Start email sending in a separate thread
-    email_thread = threading.Thread(target=send_email)
-    email_thread.daemon = True
-    email_thread.start()
-
-
 # --- Frontend Routes ---
 @app.route('/signin', methods=['GET', 'POST'])
 def signin():
@@ -789,6 +735,56 @@ def ai_detection_signal():
         return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+        
+
+def send_detection_email_thread(recipient, subject, body, image_data):
+    """Send email in a separate thread to prevent blocking."""
+    def send_email():
+        with app.app_context():
+            print(f"Preparing to send email to {recipient}...")
+            try:
+                # Basic validation
+                if not recipient or not subject or not body:
+                    print("Email sending failed: Missing required fields")
+                    return
+               
+                # Create message with proper sender configuration
+                msg = Message(
+                    subject=subject,
+                    recipients=[recipient]
+                )
+                msg.html = body
+               
+                # Handle image attachment if provided
+                if image_data:
+                    try:
+                        # Decode the base64 image and attach it
+                        if ',' in image_data:
+                            image_binary = base64.b64decode(image_data.split(',')[1])
+                        else:
+                            image_binary = base64.b64decode(image_data)
+                       
+                        msg.attach(
+                            "detection_alert.png",
+                            "image/png",
+                            image_binary
+                        )
+                    except Exception as img_error:
+                        print(f"Error processing image attachment: {img_error}")
+                        # Continue without attachment if image processing fails
+               
+                # Send the email
+                mail.send(msg)
+                print(f"Email sent successfully to {recipient}!")
+               
+            except Exception as e:
+                # Log the exception for debugging
+                print(f"Error sending email: {e}")
+    
+    # Start email sending in a separate thread
+    email_thread = threading.Thread(target=send_email)
+    email_thread.daemon = True
+    email_thread.start()
 
 @app.route('/api/send-detection-email', methods=['POST'])
 @login_required
@@ -798,14 +794,13 @@ def send_detection_email():
         room_name = data_from_request['room_name']
         image_data = data_from_request['image_data']
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
         user_data = get_user_data()
         recipient_email = user_data['user_settings']['email']
-
+        
         if not recipient_email:
             print("No recipient email found in user settings. Email not sent.")
             return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
-
+        
         subject = "Luminous Home System Alert: Motion Detected!"
         body_html = f"""
         <html>
@@ -823,14 +818,13 @@ def send_detection_email():
             </body>
         </html>
         """
-        
+       
         # Send the email in a separate thread to prevent blocking
         send_detection_email_thread(recipient_email, subject, body_html, image_data)
-        
+       
         print("API call to send email initiated.")
-
         return jsonify({"status": "success", "message": "Email alert sent."}), 200
-
+        
     except Exception as e:
         print(f"Error in send_detection_email endpoint: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
