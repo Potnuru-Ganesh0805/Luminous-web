@@ -517,7 +517,8 @@
                 });
     
                 // Send an email only once every 10 minutes to prevent spam.
-                if(lastEmailTime === null || (Date.now() - lastEmailTime) > 600000) {
+                // Handle both null initialization and numeric comparison
+                if (lastEmailTime === null || lastEmailTime === 0 || (Date.now() - lastEmailTime) > 600000) {
                     await fetch('/api/send-detection-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -528,7 +529,7 @@
             } else {
                 console.log("notfound");
                 monitoringStatus.textContent = 'No human detected. Awaiting...';
-                if(scope) {
+                if (scope) {
                     await fetch('/api/ai-detection-signal', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -542,7 +543,7 @@
         }
         
         if (isMonitoring) {
-             monitoringIntervalId = setTimeout(() => detectHumans(scope), aiControlInterval);
+            monitoringIntervalId = setTimeout(() => detectHumans(scope), aiControlInterval);
         }
     };
     
@@ -681,6 +682,99 @@
         }
     };
 
+    const renderRooms = (rooms) => {
+        const container = document.getElementById('room-container');
+        container.innerHTML = '';
+        if (rooms.length > 0) {
+            document.getElementById('rooms-view').classList.remove('hidden');
+            document.getElementById('appliances-view').classList.add('hidden');
+            rooms.forEach(room => {
+                const roomCard = document.createElement('div');
+                roomCard.setAttribute('data-slot', 'card');
+                roomCard.setAttribute('data-id', room.id);
+                roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all relative";
+                
+                const aiControlStatus = room.ai_control ? 'Yes' : 'No';
+                const aiStatusColor = room.ai_control ? 'text-green-500' : 'text-red-500';
+    
+                roomCard.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xl font-bold cursor-pointer hover:underline" onclick="showAppliances('${room.id}')">${room.name}</h3>
+                        <div class="flex space-x-2">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Room Settings" onclick="event.stopPropagation(); openRoomSettings('${room.id}')">
+                                <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-gray-500">${room.appliances.length} Appliances</p>
+                    <p class="text-sm mt-2">AI Control: <span class="font-semibold ${aiStatusColor}">${aiControlStatus}</span></p>
+                `;
+                container.appendChild(roomCard);
+            });
+            if (roomSortable) {
+                roomSortable.destroy();
+            }
+            roomSortable = new Sortable(container, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: async (evt) => {
+                    if (evt.oldIndex !== evt.newIndex) {
+                        const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                        await saveNewRoomOrder(newOrder);
+                    }
+                }
+            });
+        } else {
+            container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
+        }
+    };
+
+    const renderRooms = (rooms) => {
+        const container = document.getElementById('room-container');
+        container.innerHTML = '';
+        if (rooms.length > 0) {
+            document.getElementById('rooms-view').classList.remove('hidden');
+            document.getElementById('appliances-view').classList.add('hidden');
+            rooms.forEach(room => {
+                const roomCard = document.createElement('div');
+                roomCard.setAttribute('data-slot', 'card');
+                roomCard.setAttribute('data-id', room.id);
+                roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all relative";
+                
+                const aiControlStatus = room.ai_control ? 'Yes' : 'No';
+                const aiStatusColor = room.ai_control ? 'text-green-500' : 'text-red-500';
+    
+                roomCard.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xl font-bold cursor-pointer hover:underline" onclick="showAppliances('${room.id}')">${room.name}</h3>
+                        <div class="flex space-x-2">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Room Settings" onclick="event.stopPropagation(); openRoomSettings('${room.id}')">
+                                <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-gray-500">${room.appliances.length} Appliances</p>
+                    <p class="text-sm mt-2">AI Control: <span class="font-semibold ${aiStatusColor}">${aiControlStatus}</span></p>
+                `;
+                container.appendChild(roomCard);
+            });
+            if (roomSortable) {
+                roomSortable.destroy();
+            }
+            roomSortable = new Sortable(container, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: async (evt) => {
+                    if (evt.oldIndex !== evt.newIndex) {
+                        const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                        await saveNewRoomOrder(newOrder);
+                    }
+                }
+            });
+        } else {
+            container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
+        }
+    };
     const toggleWebcam = async () => {
         if (webcamStream) {
             // Stop webcam
