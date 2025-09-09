@@ -1633,12 +1633,5 @@
             }
         });
     };
-
-    window.addEventListener('load', () => {
-        fetchRoomsAndAppliances();
-        setInterval(fetchRoomsAndAppliances, 3000);
-        initModalsAndListeners();
-        loadModel();
-    });
 </script>
 {% endblock %}
