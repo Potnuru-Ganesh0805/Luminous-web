@@ -392,7 +392,7 @@
         }
     };
     
-    const detectHumans = async (scope) => {
+    async const detectHumans = async (scope) => {
         // Check if monitoring is active and if the model is loaded. If not, stop.
         if (!isMonitoring || !model) {
             console.log("Monitoring stopped or model not available.");
