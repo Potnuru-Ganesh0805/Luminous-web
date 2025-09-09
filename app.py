@@ -20,11 +20,12 @@ login_manager.init_app(app)
 login_manager.login_view = 'signin'
 
 # --- Flask-Mail Configuration ---
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
-app.config['MAIL_PORT'] = os.environ.get('MAIL_PORT')
-app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() in ['true', 'on', '1']
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', app.config['MAIL_USERNAME'])
 mail = Mail(app)
 
 # --- Data File Paths ---
@@ -156,22 +157,53 @@ def load_analytics_data():
 
 # --- Email Sending Logic ---
 def send_detection_email_thread(recipient, subject, body, image_data):
+    """Send email in a separate thread to prevent blocking."""
     def send_email():
         with app.app_context():
+            print(f"Preparing to send email to {recipient}...")
             try:
-                msg = Message(subject, recipients=[recipient], sender=app.config['MAIL_USERNAME'])
+                # Basic validation
+                if not recipient or not subject or not body:
+                    print("Email sending failed: Missing required fields")
+                    return
+                
+                # Create message with proper sender configuration
+                msg = Message(
+                    subject=subject,
+                    recipients=[recipient],
+                    sender=app.config['MAIL_DEFAULT_SENDER']
+                )
                 msg.html = body
                 
-                # Decode the base64 image and attach it
+                # Handle image attachment if provided
                 if image_data:
-                    image_binary = base64.b64decode(image_data.split(',')[1])
-                    msg.attach("detection_alert.png", "image/png", image_binary, 'inline', headers=[('Content-ID', '<myimage>')])
+                    try:
+                        # Decode the base64 image and attach it
+                        if ',' in image_data:
+                            image_binary = base64.b64decode(image_data.split(',')[1])
+                        else:
+                            image_binary = base64.b64decode(image_data)
+                        
+                        msg.attach(
+                            "detection_alert.png", 
+                            "image/png", 
+                            image_binary, 
+                            'inline', 
+                            headers=[('Content-ID', '<myimage>')]
+                        )
+                    except Exception as img_error:
+                        print(f"Error processing image attachment: {img_error}")
+                        # Continue without attachment if image processing fails
                 
+                # Send the email
                 mail.send(msg)
-                print(f"Email sent successfully to {recipient}")
+                print(f"Email sent successfully to {recipient}!")
+                
             except Exception as e:
-                print(f"Failed to send email: {e}")
+                # Log the exception for debugging
+                print(f"Error sending email: {e}")
 
+    # Start email sending in a separate thread
     email_thread = threading.Thread(target=send_email)
     email_thread.daemon = True
     email_thread.start()
@@ -344,6 +376,32 @@ def get_rooms_and_appliances():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/update-room-settings', methods=['POST'])
+@login_required
+def update_room_settings():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        new_name = data_from_request.get('name')
+        ai_control = data_from_request.get('ai_control')
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        if new_name is not None:
+            room['name'] = new_name
+        if ai_control is not None:
+            room['ai_control'] = ai_control
+            # Additional logic to handle AI control toggle could go here
+
+        save_user_data(user_data)
+        
+        return jsonify({"status": "success", "message": "Room settings updated."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
 @app.route('/api/delete-room', methods=['POST'])
 @login_required
 def delete_room():
@@ -562,63 +620,6 @@ def save_appliance_order():
         save_user_data(user_data)
         
         return jsonify({"status": "success"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route('/api/update-room-settings', methods=['POST'])
-@login_required
-def update_room_settings():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        new_name = data_from_request.get('name')
-        ai_control = data_from_request.get('ai_control')
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-        
-        if new_name is not None:
-            room['name'] = new_name
-        if ai_control is not None:
-            room['ai_control'] = ai_control
-            # Additional logic to handle AI control toggle could go here
-
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "message": "Room settings updated."}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    
-
-@app.route('/api/add-appliance', methods=['POST'])
-@login_required
-def add_appliance():
-    try:
-        data_from_request = request.json
-        room_id = data_from_request['room_id']
-        appliance_name = data_from_request['name']
-        relay_number = data_from_request['relay_number']
-        
-        user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-            
-        new_appliance_id = str(len(room['appliances']) + 1)
-        room['appliances'].append({
-            "id": new_appliance_id,
-            "name": appliance_name,
-            "state": False,
-            "locked": False,
-            "timer": None,
-            "relay_number": int(relay_number)
-        })
-        save_user_data(user_data)
-        
-        return jsonify({"status": "success", "appliance_id": new_appliance_id}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
