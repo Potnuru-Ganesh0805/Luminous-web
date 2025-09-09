@@ -447,6 +447,48 @@ def delete_appliance():
         return jsonify({"status": "success", "message": "Appliance deleted."}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+@app.route('/api/set-appliance-state', methods=['POST'])
+@login_required
+def set_appliance_state():
+    try:
+        data_from_request = request.json
+        room_id = data_from_request['room_id']
+        appliance_id = data_from_request['appliance_id']
+        state = data_from_request['state']
+        
+        user_data = get_user_data()
+        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+        if not room:
+            return jsonify({"status": "error", "message": "Room not found."}), 404
+        
+        appliance = next((a for a in room['appliances'] if a['id'] == appliance_id), None)
+        if not appliance:
+            return jsonify({"status": "error", "message": "Appliance not found."}), 404
+        
+        if not state:
+            appliance['timer'] = None
+
+        appliance['state'] = state
+        
+        user_data['last_command'] = {
+            "room_id": room_id,
+            "appliance_id": appliance_id,
+            "state": state,
+            "relay_number": appliance['relay_number'],
+            "timestamp": int(time.time())
+        }
+        
+        save_user_data(user_data)
+        
+        if mqtt_client:
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:{appliance_id}:{appliance['relay_number']}:{int(state)}")
+        
+        action = "turned ON" if state else "turned OFF"
+        message = f"Appliance '{appliance['name']}' in room '{room['name']}' has been {action}."
+        
+        return jsonify({"status": "success", "message": message}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/set-appliance-name', methods=['POST'])
 @login_required
