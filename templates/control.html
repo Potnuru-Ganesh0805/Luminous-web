@@ -365,6 +365,7 @@
     };
     
     const detectHumans = async () => {
+        // 1. Initial checks to ensure monitoring is active and the model is loaded.
         if (!isMonitoring || !model) {
             console.log("Monitoring stopped or model not available.");
             if (monitoringStream) {
@@ -373,36 +374,49 @@
             }
             return;
         }
-
+    
+        // 2. Ensure the video stream is available before proceeding.
         if (!monitoringVideoElement.srcObject) {
             console.log("Monitoring stream not available, stopping detection.");
-            toggleMonitoring();
+            toggleMonitoring(); // Assumes this function stops the process.
             return;
         }
-
+    
+        // 3. Draw the current video frame to a canvas for analysis.
         const ctx = webcamCanvas.getContext('2d');
         ctx.drawImage(monitoringVideoElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
         
         try {
+            // 4. Use the model to detect objects in the canvas image.
             const predictions = await model.detect(webcamCanvas);
-            const humanDetected = predictions.some(p => p.class === 'person');
-
+            const humanDetections = predictions.filter(p => p.class === 'person');
+            const humanDetected = humanDetections.length > 0;
+            
             if (humanDetected) {
-                const humanDetections = predictions.filter(p => p.class === 'person');
-                console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
+                console.log(`Human detected. Detections: ${humanDetections.length}`);
                 monitoringStatus.textContent = 'Human detected! AI is in control.';
                 
-                // Check if 10 minutes have passed since the last email
+                // 5. [FROM VERSION 1] Immediately send the signal to turn on appliances.
+                // This happens on every detection frame.
+                await fetch('/api/ai-detection-signal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: currentRoomId, state: true })
+                });
+    
+                // 6. [FROM VERSION 2] Rate-limit email alerts to once every 10 minutes (600,000 ms).
                 if (lastEmailTime === null || (Date.now() - lastEmailTime) > 600000) {
+                    console.log("Email time threshold passed. Sending alert...");
                     const roomName = allRoomsData.find(r => r.id === currentRoomId)?.name || 'Unknown Room';
-
-                    // Draw bounding boxes on a new canvas for the email alert
+    
+                    // Create a new canvas to draw the alert image with bounding boxes.
                     const alertCanvas = document.createElement('canvas');
                     alertCanvas.width = monitoringVideoElement.videoWidth;
                     alertCanvas.height = monitoringVideoElement.videoHeight;
                     const alertCtx = alertCanvas.getContext('2d');
                     alertCtx.drawImage(monitoringVideoElement, 0, 0, alertCanvas.width, alertCanvas.height);
                     
+                    // Draw red boxes around each detected person.
                     alertCtx.strokeStyle = 'red';
                     alertCtx.lineWidth = 4;
                     humanDetections.forEach(p => {
@@ -411,23 +425,21 @@
                     });
                     
                     const imageData = alertCanvas.toDataURL('image/png');
-
-                    await fetch('/api/ai-detection-signal', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: currentRoomId, state: true })
-                    });
-
+    
+                    // Send the email with the captured image.
                     await fetch('/api/send-detection-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ room_name: roomName, image_data: imageData })
                     });
                     
+                    // Update the timestamp to reset the 10-minute timer.
                     lastEmailTime = Date.now();
                 }
+    
             } else {
-                console.log("notfound");
+                // 7. If no human is detected, send the signal to turn off appliances.
+                console.log("No human detected.");
                 monitoringStatus.textContent = 'No human detected. Awaiting...';
                 if(currentRoomId) {
                     await fetch('/api/ai-detection-signal', {
@@ -442,6 +454,7 @@
             monitoringStatus.textContent = 'Error during detection.';
         }
         
+        // 8. If monitoring is still active, schedule the next detection cycle.
         if (isMonitoring) {
              monitoringIntervalId = setTimeout(detectHumans, aiControlInterval);
         }
