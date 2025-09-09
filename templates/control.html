@@ -382,12 +382,28 @@
             return;
         }
     
-        // 3. Draw the current video frame to a canvas for analysis.
+        // 3. Set canvas dimensions to match video dimensions
+        const videoWidth = monitoringVideoElement.videoWidth;
+        const videoHeight = monitoringVideoElement.videoHeight;
+        
+        if (videoWidth === 0 || videoHeight === 0) {
+            console.log("Video dimensions not ready yet");
+            if (isMonitoring) {
+                monitoringIntervalId = setTimeout(detectHumans, aiControlInterval);
+            }
+            return;
+        }
+        
+        // Update canvas size to match video
+        webcamCanvas.width = videoWidth;
+        webcamCanvas.height = videoHeight;
+        
+        // 4. Draw the current video frame to a canvas for analysis.
         const ctx = webcamCanvas.getContext('2d');
-        ctx.drawImage(monitoringVideoElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        ctx.drawImage(monitoringVideoElement, 0, 0, videoWidth, videoHeight);
         
         try {
-            // 4. Use the model to detect objects in the canvas image.
+            // 5. Use the model to detect objects in the canvas image.
             const predictions = await model.detect(webcamCanvas);
             const humanDetections = predictions.filter(p => p.class === 'person');
             const humanDetected = humanDetections.length > 0;
@@ -396,34 +412,57 @@
                 console.log(`Human detected. Detections: ${humanDetections.length}`);
                 monitoringStatus.textContent = 'Human detected! AI is in control.';
                 
-                // 5. [FROM VERSION 1] Immediately send the signal to turn on appliances.
-                // This happens on every detection frame.
+                // 6. Immediately send the signal to turn on appliances.
                 await fetch('/api/ai-detection-signal', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ room_id: currentRoomId, state: true })
                 });
     
-                // 6. [FROM VERSION 2] Rate-limit email alerts to once every 10 minutes (600,000 ms).
+                // 7. Rate-limit email alerts to once every 10 minutes (600,000 ms).
                 if (lastEmailTime === null || (Date.now() - lastEmailTime) > 600000) {
                     console.log("Email time threshold passed. Sending alert...");
                     const roomName = allRoomsData.find(r => r.id === currentRoomId)?.name || 'Unknown Room';
     
-                    // Create a new canvas to draw the alert image with bounding boxes.
+                    // Create a new canvas for the alert image with proper dimensions
                     const alertCanvas = document.createElement('canvas');
-                    alertCanvas.width = monitoringVideoElement.videoWidth;
-                    alertCanvas.height = monitoringVideoElement.videoHeight;
+                    alertCanvas.width = videoWidth;
+                    alertCanvas.height = videoHeight;
                     const alertCtx = alertCanvas.getContext('2d');
-                    alertCtx.drawImage(monitoringVideoElement, 0, 0, alertCanvas.width, alertCanvas.height);
                     
-                    // Draw red boxes around each detected person.
-                    alertCtx.strokeStyle = 'red';
-                    alertCtx.lineWidth = 4;
-                    humanDetections.forEach(p => {
-                        const [x, y, width, height] = p.bbox;
+                    // Draw the video frame first
+                    alertCtx.drawImage(monitoringVideoElement, 0, 0, videoWidth, videoHeight);
+                    
+                    // Set up styling for bounding boxes
+                    alertCtx.strokeStyle = '#FF0000'; // Red color
+                    alertCtx.lineWidth = 3;
+                    alertCtx.font = '16px Arial';
+                    alertCtx.fillStyle = '#FF0000';
+                    
+                    // Draw bounding boxes around each detected person
+                    humanDetections.forEach((detection, index) => {
+                        const [x, y, width, height] = detection.bbox;
+                        
+                        // Draw the rectangle
                         alertCtx.strokeRect(x, y, width, height);
+                        
+                        // Add confidence score label
+                        const confidence = Math.round(detection.score * 100);
+                        const label = `Person ${confidence}%`;
+                        
+                        // Draw label background
+                        const textMetrics = alertCtx.measureText(label);
+                        alertCtx.fillStyle = '#FF0000';
+                        alertCtx.fillRect(x, y - 20, textMetrics.width + 8, 20);
+                        
+                        // Draw label text
+                        alertCtx.fillStyle = '#FFFFFF';
+                        alertCtx.fillText(label, x + 4, y - 4);
+                        
+                        console.log(`Detection ${index + 1}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
                     });
                     
+                    // Convert to base64 for email
                     const imageData = alertCanvas.toDataURL('image/png');
     
                     // Send the email with the captured image.
@@ -438,7 +477,7 @@
                 }
     
             } else {
-                // 7. If no human is detected, send the signal to turn off appliances.
+                // 8. If no human is detected, send the signal to turn off appliances.
                 console.log("No human detected.");
                 monitoringStatus.textContent = 'No human detected. Awaiting...';
                 if(currentRoomId) {
@@ -454,7 +493,7 @@
             monitoringStatus.textContent = 'Error during detection.';
         }
         
-        // 8. If monitoring is still active, schedule the next detection cycle.
+        // 9. If monitoring is still active, schedule the next detection cycle.
         if (isMonitoring) {
              monitoringIntervalId = setTimeout(detectHumans, aiControlInterval);
         }
