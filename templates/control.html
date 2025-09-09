@@ -527,7 +527,7 @@
     document.getElementById('global-open-webcam-btn').addEventListener('click', toggleGlobalWebcam);
     
     // Function to update the UI state of the global monitoring buttons
-    async const updateGlobalMonitoringUI = () => {
+    const updateGlobalMonitoringUI = async () => {
         if (globalMonitoring) {
             globalMonitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
             globalMonitoringBtn.classList.add('animate-pulse');
