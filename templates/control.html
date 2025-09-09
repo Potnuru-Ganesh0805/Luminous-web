@@ -412,6 +412,52 @@
         updateGlobalMonitoringUI();
     };
 
+    const startMonitoringStream = async (isGlobal = false, roomToMonitor = null) => {
+        try {
+            if (!model) {
+                await loadModel();
+                if (!model) {
+                    showNotification('AI model failed to load.', 'off');
+                    return;
+                }
+            }
+
+            const userSettingsResponse = await fetch('/api/get-user-settings');
+            const userSettings = await userSettingsResponse.json();
+            
+            aiControlInterval = (userSettings.ai_control_interval || 5) * 1000;
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            monitoringStream = stream;
+            
+            if (!monitoringVideoElement) {
+               monitoringVideoElement = document.createElement('video');
+               monitoringVideoElement.style.display = 'none';
+               document.body.appendChild(monitoringVideoElement);
+            }
+            monitoringVideoElement.srcObject = monitoringStream;
+            await monitoringVideoElement.play();
+            
+            isMonitoring = true;
+            if (isGlobal) {
+                isGlobalMonitoring = true;
+                sessionStorage.setItem('isGlobalMonitoring', 'true');
+            } else {
+                localMonitoringRoomId = roomToMonitor;
+                sessionStorage.setItem('localMonitoringRoomId', roomToMonitor);
+            }
+            
+            monitoringCard.classList.remove('hidden');
+            
+            monitoringVideoElement.onloadedmetadata = () => {
+               monitoringIntervalId = setTimeout(() => detectHumans(roomToMonitor), aiControlInterval);
+           };
+        } catch (err) {
+            console.error("Error accessing webcam for monitoring:", err);
+            showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
+        }
+    };
+
     const toggleGlobalWebcam = async () => {
         if (globalWebcamStream) {
             globalWebcamStream.getTracks().forEach(track => track.stop());
