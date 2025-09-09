@@ -157,7 +157,6 @@ def load_analytics_data():
 
 # --- Email Sending Logic ---
 def send_detection_email_thread(recipient, subject, body, image_data):
-    """Send email in a separate thread to prevent blocking."""
     def send_email():
         with app.app_context():
             print(f"Preparing to send email to {recipient}...")
@@ -823,24 +822,26 @@ def ai_detection_signal():
         return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
+    
 @app.route('/api/send-detection-email', methods=['POST'])
 @login_required
 def send_detection_email():
     try:
         data_from_request = request.json
         room_name = data_from_request['room_name']
-        image_data = data_from_request['image_data']
+        image_data = data_from_request.get('image_data', None)
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
         user_data = get_user_data()
-        recipient_email = user_data['user_settings']['email']
-
+        recipient_email = user_data['user_settings'].get('email', None)
+        
         if not recipient_email:
             print("No recipient email found in user settings. Email not sent.")
             return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
+        
+        subject = f"Luminous Home System Alert: Motion Detected in {room_name}!"
+        if room_name == 'All Rooms':
+            subject = "Luminous Home System Alert: Motion Detected at Home!"
 
-        subject = "Luminous Home System Alert: Motion Detected!"
         body_html = f"""
         <html>
             <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -857,14 +858,12 @@ def send_detection_email():
             </body>
         </html>
         """
-        
-        # Send the email in a separate thread to prevent blocking
+       
         send_detection_email_thread(recipient_email, subject, body_html, image_data)
         
         print("API call to send email initiated.")
-
         return jsonify({"status": "success", "message": "Email alert sent."}), 200
-
+        
     except Exception as e:
         print(f"Error in send_detection_email endpoint: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
