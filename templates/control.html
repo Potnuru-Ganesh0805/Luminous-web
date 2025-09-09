@@ -1034,8 +1034,8 @@
     });
 
     // Universal Confirmation Modal Logic
-let currentAction = null;
-let currentData = null;
+    let currentAction = null;
+    let currentData = null;
 
     const openConfirmationModal = (action, ...data) => {
         const confirmationModal = document.getElementById('confirmation-modal');
@@ -1333,45 +1333,6 @@ let currentData = null;
             console.error(error);
             showNotification('Failed to update lock state.', 'off');
         }
-    };
-
-    const openConfirmationModal = (action, ...data) => {
-        const confirmationModal = document.getElementById('confirmation-modal');
-        const confirmationTitle = document.getElementById('confirmation-title');
-        const confirmationMessage = document.getElementById('confirmation-message');
-        const confirmActionBtn = document.getElementById('confirm-action-btn');
-        
-        currentAction = action;
-        currentData = data;
-        
-        // Set title and message based on action
-        switch(action) {
-            case 'delete-room':
-                confirmationTitle.textContent = 'Delete Room';
-                confirmationMessage.textContent = 'Are you sure you want to delete this room? This action cannot be undone and will also delete all appliances in this room.';
-                confirmActionBtn.textContent = 'Delete Room';
-                confirmActionBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors';
-                break;
-            case 'delete-appliance':
-                confirmationTitle.textContent = 'Delete Appliance';
-                confirmationMessage.textContent = 'Are you sure you want to delete this appliance? This action cannot be undone.';
-                confirmActionBtn.textContent = 'Delete Appliance';
-                confirmActionBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors';
-                break;
-            case 'cancel-timer':
-                confirmationTitle.textContent = 'Cancel Timer';
-                confirmationMessage.textContent = 'Are you sure you want to cancel the timer for this appliance?';
-                confirmActionBtn.textContent = 'Cancel Timer';
-                confirmActionBtn.className = 'px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors';
-                break;
-            default:
-                confirmationTitle.textContent = 'Confirm Action';
-                confirmationMessage.textContent = 'Are you sure you want to proceed?';
-                confirmActionBtn.textContent = 'Confirm';
-                confirmActionBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors';
-        }
-        
-        confirmationModal.classList.remove('hidden');
     };
 
     document.getElementById('back-to-rooms-btn').addEventListener('click', () => {
