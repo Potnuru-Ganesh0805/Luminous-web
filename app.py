@@ -779,6 +779,7 @@ def change_password():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route('/api/ai-detection-signal', methods=['POST'])
 @login_required
 def ai_detection_signal():
@@ -802,27 +803,17 @@ def ai_detection_signal():
                 if not appliance['locked']:
                     appliance['state'] = state
         
-        # Update last command for ESP32 and save data
-        user_data['last_command'] = {
-            "room_id": room_id,
-            "state": state,
-            "timestamp": int(time.time())
-        }
-        
         save_user_data(user_data)
 
-        # Publish MQTT message for AI control
-        if mqtt_client:
-            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:all:ai:{int(state)}")
-
+        # Get the room name for the notification message
+        room_name_for_message = "your home" if room_id == 'all' else room['name']
         action = "activated" if state else "deactivated"
-        room_name = room['name'] if room_id != 'all' else 'all rooms'
-        message = f"AI control for {room_name} has been {action}."
+        message = f"AI control for {room_name_for_message} has been {action}."
         
         return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    
+        
 @app.route('/api/send-detection-email', methods=['POST'])
 @login_required
 def send_detection_email():
@@ -831,42 +822,60 @@ def send_detection_email():
         room_name = data_from_request['room_name']
         image_data = data_from_request.get('image_data', None)
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         user_data = get_user_data()
-        recipient_email = user_data['user_settings'].get('email', None)
-        
+        recipient_email = user_data['user_settings']['email']
+
         if not recipient_email:
             print("No recipient email found in user settings. Email not sent.")
             return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
-        
-        subject = f"Luminous Home System Alert: Motion Detected in {room_name}!"
-        if room_name == 'All Rooms':
-            subject = "Luminous Home System Alert: Motion Detected at Home!"
 
-        body_html = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-                <div style="max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                    <h2 style="color: #d9534f;">Luminous Home System Alert!</h2>
-                    <hr style="border: 1px solid #ddd;">
-                    <p>Dear {current_user.username},</p>
-                    <p>This is an automated alert from your Luminous Home System. Something is a bit fishy.</p>
-                    <p>Motion has been detected in your room: <strong>{room_name}</strong></p>
-                    <p>Time of detection: <strong>{timestamp}</strong></p>
-                    <p>Please find the captured image attached below:</p>
-                    <img src="cid:myimage" alt="Motion Detection Alert" style="max-width: 100%; height: auto; border-radius: 5px;">
-                </div>
-            </body>
-        </html>
-        """
-       
+        subject = "Luminous Home System Alert: Motion Detected!"
+        if room_name == 'All Rooms':
+            body_html = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                    <div style="max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <h2 style="color: #d9534f;">Luminous Home System Alert!</h2>
+                        <hr style="border: 1px solid #ddd;">
+                        <p>Dear {current_user.username},</p>
+                        <p>This is an automated alert from your Luminous Home System. Something is a bit fishy.</p>
+                        <p>Motion has been detected at your home! All rooms are under AI surveillance.</p>
+                        <p>Time of detection: <strong>{timestamp}</strong></p>
+                        <p>Please find the captured image attached below:</p>
+                        <img src="cid:myimage" alt="Motion Detection Alert" style="max-width: 100%; height: auto; border-radius: 5px;">
+                    </div>
+                </body>
+            </html>
+            """
+        else:
+             body_html = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                    <div style="max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <h2 style="color: #d9534f;">Luminous Home System Alert!</h2>
+                        <hr style="border: 1px solid #ddd;">
+                        <p>Dear {current_user.username},</p>
+                        <p>This is an automated alert from your Luminous Home System. Something is a bit fishy.</p>
+                        <p>Motion has been detected in your room: <strong>{room_name}</strong></p>
+                        <p>Time of detection: <strong>{timestamp}</strong></p>
+                        <p>Please find the captured image attached below:</p>
+                        <img src="cid:myimage" alt="Motion Detection Alert" style="max-width: 100%; height: auto; border-radius: 5px;">
+                    </div>
+                </body>
+            </html>
+            """
+        
         send_detection_email_thread(recipient_email, subject, body_html, image_data)
         
         print("API call to send email initiated.")
+
         return jsonify({"status": "success", "message": "Email alert sent."}), 200
-        
+
     except Exception as e:
         print(f"Error in send_detection_email endpoint: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     generate_analytics_data()
