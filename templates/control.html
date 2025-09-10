@@ -729,6 +729,36 @@
         }
     };
 
+    const stopMonitoringStream = (scope) => {
+        isMonitoring = false;
+        if (scope === 'all') {
+            globalMonitoring = false;
+            sessionStorage.setItem('isGlobalMonitoring', 'false');
+        } else {
+            localMonitoringRoomId = null;
+            sessionStorage.removeItem('localMonitoringRoomId');
+        }
+
+        if (monitoringIntervalId) {
+            clearTimeout(monitoringIntervalId);
+            monitoringIntervalId = null;
+        }
+        if (monitoringStream) {
+            monitoringStream.getTracks().forEach(track => track.stop());
+            monitoringStream = null;
+        }
+        
+        monitoringCard.classList.add('hidden');
+        showNotification(`${scope === 'all' ? 'Global' : 'Per-room'} monitoring stopped.`, 'on');
+        
+        if (scope) {
+             fetch('/api/update-room-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: scope, ai_control: false })
+            });
+        }
+    };
 
 
     const renderRooms = (rooms) => {
