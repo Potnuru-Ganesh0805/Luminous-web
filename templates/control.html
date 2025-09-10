@@ -324,13 +324,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 <script>
+    let isGlobalMonitoring = false;
+    let globalMonitoringStream = null;
+    let globalMonitoringIntervalId = null;
+    let lastGlobalEmailTime = null;
+
     let currentRoomId = null;
     let timerIntervals = {};
     let allRoomsData = [];
     let roomSortable = null;
     let applianceSortable = null;
     let webcamStream = null;
-    let monitoringStream = null;
     let isMonitoring = false;
     let model = null;
     let monitoringIntervalId = null;
@@ -345,17 +349,21 @@
     const webcamCardContainer = document.getElementById('webcam-card-container');
     const closeWebcamBtn = document.getElementById('close-webcam-btn');
     const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
-    let aiControlInterval = 5000; // Default AI monitoring interval in milliseconds
+    const globalWebcamBtn = document.getElementById('open-webcam-global-btn');
+    const globalMonitoringBtn = document.getElementById('start-monitoring-global-btn');
+    const globalMonitoringCard = document.getElementById('ai-monitoring-global-card');
+    const globalMonitoringStatus = document.getElementById('monitoring-status-global');
+
+    let aiControlInterval = 5000;
     let modelLoaded = false;
     let lastEmailTime = null;
 
     const loadModel = async () => {
-        // Check both possible model state indicators
         if (model || modelLoaded) return;
         try {
             showNotification('Loading AI model...', 'on');
             model = await cocoSsd.load();
-            modelLoaded = true; // Set both indicators for compatibility
+            modelLoaded = true;
             showNotification('AI model loaded successfully.', 'on');
             console.log('AI model loaded successfully.');
         } catch (error) {
@@ -365,21 +373,47 @@
     };
     
     const detectHumans = async () => {
-        if (!isMonitoring || !model) {
+        // Determine if we're in global monitoring mode
+        const isCurrentlyGlobal = isGlobalMonitoring;
+        const currentRoom = isCurrentlyGlobal ? null : allRoomsData.find(r => r.id === currentRoomId);
+        const activeMonitoringStream = isCurrentlyGlobal ? globalMonitoringStream : monitoringStream;
+        const activeMonitoringVideo = isCurrentlyGlobal ? monitoringVideo : monitoringVideoElement;
+    
+        // Check if monitoring should continue
+        if ((!isMonitoring && !isCurrentlyGlobal) || !model) {
             console.log("Monitoring stopped or model not available.");
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
+            if (activeMonitoringStream) {
+                activeMonitoringStream.getTracks().forEach(track => track.stop());
+                if (isCurrentlyGlobal) {
+                    globalMonitoringStream = null;
+                } else {
+                    monitoringStream = null;
+                }
             }
             return;
         }
     
-        // Use monitoringVideo if available, fallback to monitoringVideoElement
-        const videoElement = monitoringVideo || monitoringVideoElement;
+        // Check if stream/model is available
+        if (!activeMonitoringStream || !model) {
+            console.log("Monitoring stopped or stream/model not available.");
+            if (isCurrentlyGlobal) {
+                toggleGlobalMonitoring();
+            } else {
+                toggleMonitoring();
+            }
+            return;
+        }
+    
+        // Use appropriate video element - prefer dynamic selection
+        const videoElement = activeMonitoringVideo;
         
         if (!videoElement || !videoElement.srcObject) {
             console.log("Monitoring stream not available, stopping detection.");
-            toggleMonitoring();
+            if (isCurrentlyGlobal) {
+                toggleGlobalMonitoring();
+            } else {
+                toggleMonitoring();
+            }
             return;
         }
     
@@ -391,8 +425,6 @@
         } else {
             // Create temporary canvas
             canvas = document.createElement('canvas');
-            canvas.width = videoElement.videoWidth || 640;
-            canvas.height = videoElement.videoHeight || 480;
         }
         
         // Ensure proper canvas dimensions
@@ -409,104 +441,223 @@
             const humanDetections = predictions.filter(p => p.class === 'person');
             const humanDetected = humanDetections.length > 0;
     
+            // Get appropriate status element
+            const statusElement = isCurrentlyGlobal ? globalMonitoringStatus : monitoringStatus;
+            
+            // Prepare API request parameters
+            let apiEndpoint = '/api/ai-detection-signal';
+            let requestBody = { state: humanDetected };
+            let emailParams = { image_data: null, room_name: null, is_global: isCurrentlyGlobal };
+    
             if (humanDetected) {
                 console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
-                monitoringStatus.textContent = 'Human detected! AI is in control.';
                 
-                if(currentRoomId) {
-                    await fetch('/api/ai-detection-signal', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: currentRoomId, state: true })
-                    });
+                if (isCurrentlyGlobal) {
+                    statusElement.textContent = 'Human detected! All unlocked appliances are active.';
+                    requestBody.room_id = null;
+                    emailParams.is_global = true;
+                } else {
+                    const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
+                    statusElement.textContent = `Human detected in ${roomName}! AI is in control.`;
+                    requestBody.room_id = currentRoomId;
+                    emailParams.room_name = roomName;
                 }
-    
-                // Rate-limit email alerts to once every 10 minutes (600,000 ms).
-                if (lastEmailTime === null || (Date.now() - lastEmailTime) > 600000) {
-                    console.log("Email time threshold passed. Sending alert...");
-                    const roomName = allRoomsData.find(r => r.id === currentRoomId)?.name || 'Unknown Room';
-    
-                    // Create alert canvas with proper dimensions
-                    const alertCanvas = document.createElement('canvas');
-                    alertCanvas.width = videoWidth;
-                    alertCanvas.height = videoHeight;
-                    const alertCtx = alertCanvas.getContext('2d');
-                    
-                    // Draw the video frame first
-                    alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
-                    
-                    // Set up styling for bounding boxes
-                    alertCtx.strokeStyle = '#FF0000';
-                    alertCtx.lineWidth = 3;
-                    alertCtx.font = '16px Arial';
-                    
-                    // Draw bounding boxes around each detected person
-                    humanDetections.forEach((detection, index) => {
-                        const [x, y, width, height] = detection.bbox;
-                        
-                        // Draw the rectangle
-                        alertCtx.strokeRect(x, y, width, height);
-                        
-                        // Add confidence score label
-                        const confidence = Math.round(detection.score * 100);
-                        const label = `Person ${confidence}%`;
-                        
-                        // Draw label background
-                        const textMetrics = alertCtx.measureText(label);
-                        alertCtx.fillStyle = '#FF0000';
-                        alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
-                        
-                        // Draw label text
-                        alertCtx.fillStyle = '#FFFFFF';
-                        alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
-                        
-                        console.log(`Detection ${index + 1}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
-                    });
-                    
-                    try {
-                        // Convert to base64 for email - add error handling
-                        const imageData = alertCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size
-                        
-                        // Validate image data before sending
-                        if (imageData && imageData.length > 100) {
-                            await fetch('/api/send-detection-email', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ room_name: roomName, image_data: imageData })
-                            });
-                            
-                            lastEmailTime = Date.now();
-                            console.log("Detection email sent successfully");
-                        } else {
-                            console.error("Invalid image data for email");
-                        }
-                    } catch (emailError) {
-                        console.error("Failed to send detection email:", emailError);
-                    }
-                }
-    
             } else {
                 console.log("notfound");
-                monitoringStatus.textContent = 'No human detected. Awaiting...';
-                if(currentRoomId) {
-                    await fetch('/api/ai-detection-signal', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: currentRoomId, state: false })
-                    });
+                
+                if (isCurrentlyGlobal) {
+                    statusElement.textContent = 'No human detected. Awaiting...';
+                    requestBody.room_id = null;
+                } else {
+                    const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
+                    statusElement.textContent = `No human detected in ${roomName}. Awaiting...`;
+                    requestBody.room_id = currentRoomId;
+                    emailParams.room_name = roomName;
                 }
             }
+    
+            // Send AI detection signal to backend
+            if (currentRoomId || isCurrentlyGlobal) {
+                await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+            }
+    
+            // Rate-limit email alerts to once every 10 minutes (600,000 ms) per detection type
+            const lastEmail = isCurrentlyGlobal ? lastGlobalEmailTime : lastEmailTime;
+            const updateLastEmailTime = isCurrentlyGlobal ? 
+                (time) => lastGlobalEmailTime = time : 
+                (time) => lastEmailTime = time;
+    
+            if (humanDetected && (lastEmail === null || (Date.now() - lastEmail) > 600000)) {
+                console.log("Email time threshold passed. Sending alert...");
+                
+                // Create alert canvas with proper dimensions and enhanced visualization
+                const alertCanvas = document.createElement('canvas');
+                alertCanvas.width = videoWidth;
+                alertCanvas.height = videoHeight;
+                const alertCtx = alertCanvas.getContext('2d');
+                
+                // Draw the video frame first
+                alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+                
+                // Set up styling for bounding boxes
+                alertCtx.strokeStyle = '#FF0000';
+                alertCtx.lineWidth = 3;
+                alertCtx.font = '16px Arial';
+                
+                // Draw bounding boxes around each detected person
+                humanDetections.forEach((detection, index) => {
+                    const [x, y, width, height] = detection.bbox;
+                    
+                    // Draw the rectangle
+                    alertCtx.strokeRect(x, y, width, height);
+                    
+                    // Add confidence score label
+                    const confidence = Math.round(detection.score * 100);
+                    const label = `Person ${confidence}%`;
+                    
+                    // Draw label background
+                    const textMetrics = alertCtx.measureText(label);
+                    alertCtx.fillStyle = '#FF0000';
+                    alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
+                    
+                    // Draw label text
+                    alertCtx.fillStyle = '#FFFFFF';
+                    alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
+                    
+                    console.log(`Detection ${index + 1}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
+                });
+                
+                try {
+                    // Convert to base64 for email - add error handling
+                    const imageData = alertCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size
+                    
+                    // Validate image data before sending
+                    if (imageData && imageData.length > 100) {
+                        emailParams.image_data = imageData;
+                        
+                        await fetch('/api/send-detection-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(emailParams)
+                        });
+                        
+                        updateLastEmailTime(Date.now());
+                        console.log("Detection email sent successfully");
+                    } else {
+                        console.error("Invalid image data for email");
+                    }
+                } catch (emailError) {
+                    console.error("Failed to send detection email:", emailError);
+                }
+            }
+    
         } catch (error) {
             console.error("Error during detection:", error);
-            monitoringStatus.textContent = 'Error during detection.';
+            const statusElement = isCurrentlyGlobal ? globalMonitoringStatus : monitoringStatus;
+            statusElement.textContent = 'Error during detection.';
         }
         
-        if (isMonitoring) {
-            monitoringIntervalId = setTimeout(detectHumans, monitoringInterval || 3000);
+        // Schedule next detection cycle
+        if (isCurrentlyGlobal || isMonitoring) {
+            const interval = aiControlInterval || monitoringInterval || 3000;
+            monitoringIntervalId = setTimeout(detectHumans, interval);
+        }
+    };
+
+    const toggleGlobalWebcam = async () => {
+        if (globalWebcamStream) {
+            globalWebcamStream.getTracks().forEach(track => track.stop());
+            globalWebcamStream = null;
+            if (liveWebcamVideo) { liveWebcamVideo.srcObject = null; }
+            webcamCardContainer.classList.add('hidden');
+            globalWebcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
+            showNotification('Webcam turned off.', 'on');
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                globalWebcamStream = stream;
+                if (!liveWebcamVideo) { throw new Error('Live webcam video element not found'); }
+                liveWebcamVideo.srcObject = globalWebcamStream;
+                await new Promise((resolve) => liveWebcamVideo.onloadedmetadata = resolve);
+                webcamCardContainer.classList.remove('hidden');
+                webcamCardContainer.setAttribute('data-global', 'true');
+                globalWebcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
+                showNotification('Webcam turned on.', 'on');
+            } catch (err) {
+                console.error("Error accessing webcam:", err);
+                let errorMessage = 'Failed to access webcam. Please check permissions.';
+                if (err.name === 'NotAllowedError') errorMessage = 'Camera permission denied.';
+                showNotification(errorMessage, 'off');
+                if (globalWebcamStream) globalWebcamStream.getTracks().forEach(track => track.stop());
+                globalWebcamStream = null;
+            }
+        }
+    };
+
+    const toggleGlobalMonitoring = async () => {
+        if (isGlobalMonitoring) {
+            // Stop global monitoring
+            isGlobalMonitoring = false;
+            globalMonitoringCard.classList.add('hidden');
+            globalMonitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
+            showNotification('Global AI monitoring stopped.', 'on');
+            if (globalMonitoringIntervalId) { clearTimeout(globalMonitoringIntervalId); }
+            if (globalMonitoringStream) {
+                globalMonitoringStream.getTracks().forEach(track => track.stop());
+                globalMonitoringStream = null;
+            }
+            await fetch('/api/set-global-ai-control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: false })
+            });
+            fetchRoomsAndAppliances(); // Refresh UI
+        } else {
+            // Start global monitoring
+            try {
+                if (!modelLoaded) await loadModel();
+                if (!modelLoaded) { showNotification('AI model failed to load.', 'off'); return; }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                globalMonitoringStream = stream;
+                
+                if (!monitoringVideo) {
+                    monitoringVideo = document.createElement('video');
+                    monitoringVideo.style.display = 'none';
+                    document.body.appendChild(monitoringVideo);
+                }
+                monitoringVideo.srcObject = globalMonitoringStream;
+                await monitoringVideo.play();
+                
+                isGlobalMonitoring = true;
+                globalMonitoringCard.classList.remove('hidden');
+                globalMonitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
+                showNotification('Global AI monitoring started.', 'on');
+                
+                await fetch('/api/set-global-ai-control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: true })
+                });
+                
+                detectHumans();
+                fetchRoomsAndAppliances(); // Refresh UI
+            } catch (err) {
+                console.error("Error starting global monitoring:", err);
+                showNotification("Failed to start global monitoring. Check camera access.", 'off');
+                if (globalMonitoringStream) globalMonitoringStream.getTracks().forEach(track => track.stop());
+                globalMonitoringStream = null;
+                isGlobalMonitoring = false;
+            }
         }
     };
 
     
+        
     
     const toggleMonitoring = async () => {
         if (isMonitoring) {
@@ -807,7 +958,6 @@
         try {
             const response = await fetch('/api/get-rooms-and-appliances');
             if (!response.ok) {
-                console.error('API call failed with status:', response.status);
                 throw new Error('Failed to fetch rooms and appliances');
             }
             const rooms = await response.json();
@@ -835,6 +985,14 @@
         if (rooms.length > 0) {
             document.getElementById('rooms-view').classList.remove('hidden');
             document.getElementById('appliances-view').classList.add('hidden');
+            if (isGlobalMonitoring) {
+                document.getElementById('start-monitoring-global-btn').innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
+                document.getElementById('ai-monitoring-global-card').classList.remove('hidden');
+            } else {
+                document.getElementById('start-monitoring-global-btn').innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
+                document.getElementById('ai-monitoring-global-card').classList.add('hidden');
+            }
+
             rooms.forEach(room => {
                 const roomCard = document.createElement('div');
                 roomCard.setAttribute('data-slot', 'card');
@@ -843,7 +1001,7 @@
                 
                 const aiControlStatus = room.ai_control ? 'Yes' : 'No';
                 const aiStatusColor = room.ai_control ? 'text-green-500' : 'text-red-500';
-
+                
                 roomCard.innerHTML = `
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="text-xl font-bold cursor-pointer hover:underline" onclick="showAppliances('${room.id}')">${room.name}</h3>
@@ -873,6 +1031,33 @@
             });
         } else {
             container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
+        }
+    };
+
+    const renderAppliances = (appliances, roomName) => {
+        const container = document.getElementById('appliance-container');
+        container.innerHTML = '';
+        const appliancesHeading = document.getElementById('appliances-heading');
+        if (appliancesHeading) {
+            appliancesHeading.textContent = `${roomName} Appliances`;
+        }
+        document.getElementById('rooms-view').classList.add('hidden');
+        document.getElementById('appliances-view').classList.remove('hidden');
+
+        // Disable per-room monitoring buttons if global monitoring is active
+        const perRoomMonitoringBtn = document.getElementById('start-monitoring-btn');
+        if (isGlobalMonitoring) {
+            perRoomMonitoringBtn.disabled = true;
+            perRoomMonitoringBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            perRoomMonitoringBtn.disabled = false;
+            perRoomMonitoringBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        
+        if (appliances.length > 0) {
+             // ... rest of the renderAppliances logic ...
+        } else {
+            container.innerHTML = `<p class="text-center text-gray-500">No appliances in this room yet. Click "Add Appliance" to get started!</p>`;
         }
     };
 
@@ -912,38 +1097,78 @@
     const renderAppliances = (appliances, roomName) => {
         const container = document.getElementById('appliance-container');
         container.innerHTML = '';
+        
+        // Update appliances heading with room name
         const appliancesHeading = document.getElementById('appliances-heading');
         if (appliancesHeading) {
             appliancesHeading.textContent = `${roomName} Appliances`;
         }
+        
+        // Switch views from rooms to appliances
         document.getElementById('rooms-view').classList.add('hidden');
         document.getElementById('appliances-view').classList.remove('hidden');
-
+    
+        // Disable per-room monitoring buttons if global monitoring is active
+        const perRoomMonitoringBtn = document.getElementById('start-monitoring-btn');
+        if (perRoomMonitoringBtn) {
+            if (isGlobalMonitoring) {
+                perRoomMonitoringBtn.disabled = true;
+                perRoomMonitoringBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                // Update button text to indicate why it's disabled
+                const originalText = perRoomMonitoringBtn.textContent;
+                if (!originalText.includes('(Global Active)')) {
+                    perRoomMonitoringBtn.setAttribute('data-original-text', originalText);
+                    perRoomMonitoringBtn.textContent = originalText + ' (Global Active)';
+                }
+            } else {
+                perRoomMonitoringBtn.disabled = false;
+                perRoomMonitoringBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                // Restore original button text
+                const originalText = perRoomMonitoringBtn.getAttribute('data-original-text');
+                if (originalText) {
+                    perRoomMonitoringBtn.textContent = originalText;
+                    perRoomMonitoringBtn.removeAttribute('data-original-text');
+                }
+            }
+        }
+    
         if (appliances.length > 0) {
             appliances.forEach(appliance => {
                 const is_on = appliance.state;
                 const is_locked = appliance.locked;
                 const applianceCard = document.createElement('div');
+                
+                // Set card attributes
                 applianceCard.setAttribute('data-slot', 'card');
                 applianceCard.setAttribute('data-id', appliance.id);
                 applianceCard.className = "bg-card text-card-foreground rounded-xl border py-6 px-6 shadow-sm transition-all flex flex-col items-stretch relative";
-
+    
+                // Build appliance card HTML with all controls
                 applianceCard.innerHTML = `
                     <div class="flex items-center justify-between mb-4">
                         <div data-slot="card-title" class="leading-none font-semibold pr-2 flex items-center">
                             <span class="appliance-name">${appliance.name}</span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Manual Override" onclick="toggleLock('${currentRoomId}', '${appliance.id}')">
-                                <i id="lock-icon-${appliance.id}" class="h-4 w-4 fas ${is_locked ? 'fa-lock text-red-500' : 'fa-unlock text-gray-400'}"></i>
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" 
+                                    title="Set Manual Override" 
+                                    onclick="toggleLock('${currentRoomId}', '${appliance.id}')">
+                                <i id="lock-icon-${appliance.id}" 
+                                   class="h-4 w-4 fas ${is_locked ? 'fa-lock text-red-500' : 'fa-unlock text-gray-400'}"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Set Timer" onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" 
+                                    title="Set Timer" 
+                                    onclick="openTimerModal('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-clock text-gray-400"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Appliance Settings" onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" 
+                                    title="Appliance Settings" 
+                                    onclick="openApplianceSettings('${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
                             </button>
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0 cancel-timer-btn hidden" title="Cancel Timer" onclick="openConfirmationModal('cancel-timer', '${currentRoomId}', '${appliance.id}')">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0 cancel-timer-btn hidden" 
+                                    title="Cancel Timer" 
+                                    onclick="openConfirmationModal('cancel-timer', '${currentRoomId}', '${appliance.id}')">
                                 <i class="h-4 w-4 fas fa-times-circle text-red-400"></i>
                             </button>
                         </div>
@@ -951,37 +1176,84 @@
                     <div data-slot="card-content" class="flex-grow flex items-center justify-between">
                         <i class="fas fa-lightbulb text-2xl ${is_on ? 'text-primary-accent' : 'text-gray-400 dark:text-gray-600'} transition-colors"></i>
                         <label class="custom-toggle-switch">
-                            <input type="checkbox" data-room-id="${currentRoomId}" data-appliance-id="${appliance.id}" ${is_on ? 'checked' : ''}>
+                            <input type="checkbox" 
+                                   data-room-id="${currentRoomId}" 
+                                   data-appliance-id="${appliance.id}" 
+                                   ${is_on ? 'checked' : ''}>
                             <span class="slider"></span>
                         </label>
                     </div>
                     <span class="timer-display absolute bottom-2 left-2 text-xs font-semibold text-primary-accent hidden"></span>
                 `;
+                
                 container.appendChild(applianceCard);
-
+    
+                // Add toggle event listener for appliance state changes
                 const toggleInput = applianceCard.querySelector('input[type="checkbox"]');
                 toggleInput.onchange = () => {
-                     const newState = toggleInput.checked;
-                     sendApplianceState(currentRoomId, appliance.id, newState);
+                    const newState = toggleInput.checked;
+                    sendApplianceState(currentRoomId, appliance.id, newState);
                 };
+                
+                // Update timer display for this appliance
                 updateTimerDisplay(applianceCard, appliance);
             });
+    
+            // Initialize or reinitialize sortable functionality for drag-and-drop reordering
             if (applianceSortable) {
                 applianceSortable.destroy();
             }
+            
             applianceSortable = new Sortable(container, {
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 onEnd: async (evt) => {
+                    // Save new order only if position actually changed
                     if (evt.oldIndex !== evt.newIndex) {
                         const newOrder = Array.from(container.children).map(child => child.dataset.id);
                         await saveNewApplianceOrder(currentRoomId, newOrder);
                     }
                 }
             });
+            
         } else {
-            container.innerHTML = `<p class="text-center text-gray-500">No appliances in this room yet. Click "Add Appliance" to get started!</p>`;
+            // Display message when no appliances are present
+            container.innerHTML = `
+                <p class="text-center text-gray-500">
+                    No appliances in this room yet. Click "Add Appliance" to get started!
+                </p>
+            `;
         }
+    
+        // Additional UI updates for global monitoring state awareness
+        updateMonitoringUIState();
+    };
+    
+    // Helper function to update monitoring-related UI states
+    const updateMonitoringUIState = () => {
+        // Update other monitoring-related UI elements if they exist
+        const monitoringIndicators = document.querySelectorAll('.monitoring-indicator');
+        monitoringIndicators.forEach(indicator => {
+            if (isGlobalMonitoring) {
+                indicator.classList.add('global-active');
+                indicator.setAttribute('title', 'Global monitoring is active');
+            } else {
+                indicator.classList.remove('global-active');
+                indicator.removeAttribute('title');
+            }
+        });
+    
+        // Update room-specific controls based on global monitoring state
+        const roomControls = document.querySelectorAll('.room-specific-control');
+        roomControls.forEach(control => {
+            if (isGlobalMonitoring) {
+                control.classList.add('disabled-by-global');
+                control.setAttribute('disabled', 'true');
+            } else {
+                control.classList.remove('disabled-by-global');
+                control.removeAttribute('disabled');
+            }
+        });
     };
 
     const openRoomSettings = (roomId) => {
