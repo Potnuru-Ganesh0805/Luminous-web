@@ -1872,23 +1872,6 @@
 
         document.getElementById('global-open-webcam-btn').addEventListener('click', toggleGlobalWebcam);
         document.getElementById('global-start-monitoring-btn').addEventListener('click', toggleGlobalMonitoring);
-
-
-        document.getElementById('confirm-select-room-btn').addEventListener('click', () => {
-            const selectedRoomId = document.getElementById('global-room-selector').value;
-            if (selectedRoomId) {
-                showAppliances(selectedRoomId);
-                // Use a small timeout to ensure the view has switched before triggering the action
-                setTimeout(() => {
-                    if (pendingGlobalAction === 'webcam') {
-                        toggleWebcam();
-                    } else if (pendingGlobalAction === 'monitoring') {
-                        toggleMonitoring();
-                    }
-                }, 100); // 100ms delay is usually enough
-            }
-            document.getElementById('select-room-modal').classList.add('hidden');
-        });
         
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
