@@ -965,6 +965,16 @@
 
     const fetchRoomsAndAppliances = async () => {
         try {
+            // Check if essential DOM elements exist before proceeding
+            const roomContainer = document.getElementById('room-container');
+            const roomsView = document.getElementById('rooms-view');
+            const appliancesView = document.getElementById('appliances-view');
+            
+            if (!roomContainer || !roomsView || !appliancesView) {
+                console.warn('Essential DOM elements not found, skipping fetch');
+                return;
+            }
+            
             const response = await fetch('/api/get-rooms-and-appliances');
             if (!response.ok) {
                 throw new Error('Failed to fetch rooms and appliances');
@@ -972,14 +982,15 @@
             const rooms = await response.json();
             allRoomsData = rooms;
             renderRooms(rooms);
+            
             if (currentRoomId) {
                 const room = rooms.find(r => r.id === currentRoomId);
                 if (room) {
                     renderAppliances(room.appliances, room.name);
                 } else {
                     currentRoomId = null;
-                    document.getElementById('rooms-view').classList.remove('hidden');
-                    document.getElementById('appliances-view').classList.add('hidden');
+                    roomsView.classList.remove('hidden');
+                    appliancesView.classList.add('hidden');
                 }
             }
         } catch (error) {
@@ -990,18 +1001,48 @@
 
     const renderRooms = (rooms) => {
         const container = document.getElementById('room-container');
+        
+        // Add null check to prevent the error
+        if (!container) {
+            console.error('room-container element not found in DOM');
+            // Retry after a short delay if DOM isn't ready
+            setTimeout(() => {
+                const retryContainer = document.getElementById('room-container');
+                if (retryContainer) {
+                    renderRooms(rooms);
+                } else {
+                    console.error('room-container still not found after retry');
+                }
+            }, 100);
+            return;
+        }
+        
         container.innerHTML = '';
+        
         if (rooms.length > 0) {
             document.getElementById('rooms-view').classList.remove('hidden');
             document.getElementById('appliances-view').classList.add('hidden');
+            
             if (isGlobalMonitoring) {
-                document.getElementById('start-monitoring-global-btn').innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
-                document.getElementById('ai-monitoring-global-card').classList.remove('hidden');
+                const globalMonitoringBtn = document.getElementById('global-start-monitoring-btn');
+                const globalMonitoringCard = document.getElementById('ai-monitoring-global-card');
+                if (globalMonitoringBtn) {
+                    globalMonitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
+                }
+                if (globalMonitoringCard) {
+                    globalMonitoringCard.classList.remove('hidden');
+                }
             } else {
-                document.getElementById('start-monitoring-global-btn').innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
-                document.getElementById('ai-monitoring-global-card').classList.add('hidden');
+                const globalMonitoringBtn = document.getElementById('global-start-monitoring-btn');
+                const globalMonitoringCard = document.getElementById('ai-monitoring-global-card');
+                if (globalMonitoringBtn) {
+                    globalMonitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
+                }
+                if (globalMonitoringCard) {
+                    globalMonitoringCard.classList.add('hidden');
+                }
             }
-
+    
             rooms.forEach(room => {
                 const roomCard = document.createElement('div');
                 roomCard.setAttribute('data-slot', 'card');
@@ -1025,6 +1066,7 @@
                 `;
                 container.appendChild(roomCard);
             });
+            
             if (roomSortable) {
                 roomSortable.destroy();
             }
@@ -1042,7 +1084,6 @@
             container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
         }
     };
-
 
     const updateTimerDisplay = (card, appliance) => {
         const timerElement = card.querySelector('.timer-display');
