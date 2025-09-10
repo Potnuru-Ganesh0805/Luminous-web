@@ -111,17 +111,9 @@
     <div id="rooms-view" class="transition-transform duration-500">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold text-text-card-foreground">Rooms</h2>
-            <div class="flex space-x-4">
-                <button id="global-open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-camera mr-2"></i>Open Webcam
-                </button>
-                <button id="global-start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-eye mr-2"></i>Start Monitoring
-                </button>
-                <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-plus-circle mr-2"></i>Add Room
-                </button>
-            </div>
+            <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                <i class="fas fa-plus-circle mr-2"></i>Add Room
+            </button>
         </div>
         <div id="room-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Room cards will be dynamically inserted here -->
@@ -343,39 +335,19 @@
     let model = null;
     let monitoringIntervalId = null;
     let monitoringVideo = null;
-    let aiControlInterval = null;
-    let lastEmailTime = 0;
-    let isGlobalMonitoring = sessionStorage.getItem('isGlobalMonitoring') === 'true';
-    let localMonitoringRoomId = sessionStorage.getItem('localMonitoringRoomId') || null;
-    let modelLoaded = false;
-    let globalMonitoring = sessionStorage.getItem('globalMonitoring') === 'true';
-    let globalMonitoringIntervalId = null;
-    let globalWebcamStream = null;
-    
-    // DOM Elements
     const monitoringCard = document.getElementById('ai-monitoring-card');
     const monitoringStatus = document.getElementById('monitoring-status');
     const webcamCanvas = document.createElement('canvas');
     const monitoringVideoElement = document.createElement('video');
     const webcamBtn = document.getElementById('open-webcam-btn');
     const monitoringBtn = document.getElementById('start-monitoring-btn');
-    const globalWebcamBtn = document.getElementById('global-open-webcam-btn');
-    const globalMonitoringBtn = document.getElementById('global-start-monitoring-btn');
     const liveWebcamVideo = document.getElementById('webcam-video-live');
     const webcamCardContainer = document.getElementById('webcam-card-container');
     const closeWebcamBtn = document.getElementById('close-webcam-btn');
     const backToRoomsBtn = document.getElementById('back-to-rooms-btn');
-    
-    window.onload = () => {
-        fetchRoomsAndAppliances();
-        setInterval(fetchRoomsAndAppliances, 3000);
-        initModalsAndListeners();
-        loadModel();
-        if (isGlobalMonitoring) {
-            // Start global monitoring if it was active
-            startMonitoringStream(true, 'all');
-        }
-    };
+    let aiControlInterval = 5000; // Default AI monitoring interval in milliseconds
+    let modelLoaded = false;
+    let lastEmailTime = null;
 
     const loadModel = async () => {
         // Check both possible model state indicators
@@ -391,122 +363,8 @@
             showNotification('Failed to load AI model.', 'off');
         }
     };
-
-    const toggleGlobalMonitoring = async () => {
-        if (globalMonitoring) {
-            globalMonitoring = false;
-            sessionStorage.setItem('globalMonitoring', 'false');
-            stopMonitoringStream('global');
-            showNotification('Global monitoring stopped.', 'on');
-        } else {
-            const userSettingsResponse = await fetch('/api/get-user-settings');
-            const userSettings = await userSettingsResponse.json();
-            const intervalInSeconds = userSettings.ai_control_interval || 5;
-            const monitoringInterval = intervalInSeconds * 1000;
-            
-            startMonitoringStream('global', monitoringInterval);
-            globalMonitoring = true;
-            sessionStorage.setItem('globalMonitoring', 'true');
-            showNotification('Global monitoring started.', 'on');
-        }
-        updateGlobalMonitoringUI();
-    };
-
-    const startMonitoringStream = async (isGlobal = false, roomToMonitor = null) => {
-        try {
-            if (!model) {
-                await loadModel();
-                if (!model) {
-                    showNotification('AI model failed to load.', 'off');
-                    return;
-                }
-            }
     
-            const userSettingsResponse = await fetch('/api/get-user-settings');
-            const userSettings = await userSettingsResponse.json();
-    
-            aiControlInterval = (userSettings.ai_control_interval || 5) * 1000;
-    
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            monitoringStream = stream;
-    
-            if (!monitoringVideoElement) {
-                monitoringVideoElement = document.createElement('video');
-                monitoringVideoElement.style.display = 'none';
-                document.body.appendChild(monitoringVideoElement);
-            }
-            monitoringVideoElement.srcObject = monitoringStream;
-            await monitoringVideoElement.play();
-    
-            isMonitoring = true;
-            if (isGlobal) {
-                isGlobalMonitoring = true;
-                sessionStorage.setItem('isGlobalMonitoring', 'true');
-            } else {
-                localMonitoringRoomId = roomToMonitor;
-                sessionStorage.setItem('localMonitoringRoomId', roomToMonitor);
-            }
-    
-            monitoringCard.classList.remove('hidden');
-            showNotification(`${isGlobal ? 'Global' : 'Per-room'} monitoring started.`, 'on');
-    
-            monitoringVideoElement.onloadedmetadata = () => {
-                monitoringIntervalId = setTimeout(() => detectHumans(roomToMonitor), aiControlInterval);
-            };
-        } catch (err) {
-            console.error("Error accessing webcam for monitoring:", err);
-            showNotification('Failed to access webcam for monitoring. Please check permissions.', 'off');
-        }
-    };
-    
-    const toggleGlobalWebcam = async () => {
-        if (globalWebcamStream) {
-            globalWebcamStream.getTracks().forEach(track => track.stop());
-            globalWebcamStream = null;
-            webcamCardContainer.classList.add('hidden');
-            globalWebcamBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Open Webcam';
-            showNotification('Webcam turned off.', 'on');
-        } else {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                globalWebcamStream = stream;
-                liveWebcamVideo.srcObject = globalWebcamStream;
-                webcamCardContainer.classList.remove('hidden');
-                globalWebcamBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Close Webcam';
-                showNotification('Webcam turned on.', 'on');
-            } catch (err) {
-                console.error("Error accessing webcam:", err);
-                showNotification('Failed to access webcam. Please check permissions.', 'off');
-            }
-        }
-    };
-    
-    document.getElementById('global-start-monitoring-btn').addEventListener('click', toggleGlobalMonitoring);
-    document.getElementById('global-open-webcam-btn').addEventListener('click', toggleGlobalWebcam);
-    
-    // Function to update the UI state of the global monitoring buttons
-    // Function to update the UI state of the global monitoring buttons
-    const updateGlobalMonitoringUI = async () => {
-        if (globalMonitoring) {
-            globalMonitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
-            globalMonitoringBtn.classList.add('animate-pulse');
-            document.querySelectorAll('#appliance-container #start-monitoring-btn').forEach(btn => {
-                btn.disabled = true;
-                btn.classList.add('opacity-50');
-            });
-        } else {
-            globalMonitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
-            globalMonitoringBtn.classList.remove('animate-pulse');
-            document.querySelectorAll('#appliance-container #start-monitoring-btn').forEach(btn => {
-                btn.disabled = false;
-                btn.classList.remove('opacity-50');
-            });
-        }
-    };
-    
-    // Fixed detectHumans function - this is where the main issue was
-    const detectHumans = async (scope) => {
-        // Check if monitoring is active and if the model is loaded. If not, stop.
+    const detectHumans = async () => {
         if (!isMonitoring || !model) {
             console.log("Monitoring stopped or model not available.");
             if (monitoringStream) {
@@ -516,71 +374,125 @@
             return;
         }
     
-        // Check if the video stream is available. If not, stop monitoring.
-        if (!monitoringVideoElement.srcObject) {
+        // Use monitoringVideo if available, fallback to monitoringVideoElement
+        const videoElement = monitoringVideo || monitoringVideoElement;
+        
+        if (!videoElement || !videoElement.srcObject) {
             console.log("Monitoring stream not available, stopping detection.");
-            toggleMonitoring(false, scope);
+            toggleMonitoring();
             return;
         }
     
-        // Use a canvas to capture a frame from the hidden video feed.
-        const ctx = webcamCanvas.getContext('2d');
-        webcamCanvas.width = monitoringVideoElement.videoWidth;
-        webcamCanvas.height = monitoringVideoElement.videoHeight;
-        ctx.drawImage(monitoringVideoElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        // Create canvas for detection - prefer dynamic sizing
+        let canvas;
+        if (webcamCanvas && webcamCanvas.getContext) {
+            // Use existing canvas if available
+            canvas = webcamCanvas;
+        } else {
+            // Create temporary canvas
+            canvas = document.createElement('canvas');
+            canvas.width = videoElement.videoWidth || 640;
+            canvas.height = videoElement.videoHeight || 480;
+        }
+        
+        // Ensure proper canvas dimensions
+        const videoWidth = videoElement.videoWidth || 640;
+        const videoHeight = videoElement.videoHeight || 480;
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
         
         try {
-            const predictions = await model.detect(webcamCanvas);
-            const humanDetected = predictions.some(p => p.class === 'person');
-    
-            const roomName = (scope === 'all') ? 'All Rooms' : allRoomsData.find(r => r.id === scope)?.name || 'Unknown Room';
+            const predictions = await model.detect(canvas);
+            const humanDetections = predictions.filter(p => p.class === 'person');
+            const humanDetected = humanDetections.length > 0;
     
             if (humanDetected) {
-                const humanDetections = predictions.filter(p => p.class === 'person');
                 console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
                 monitoringStatus.textContent = 'Human detected! AI is in control.';
                 
-                // Draw bounding boxes for the email image.
-                const alertCanvas = document.createElement('canvas');
-                alertCanvas.width = monitoringVideoElement.videoWidth;
-                alertCanvas.height = monitoringVideoElement.videoHeight;
-                const alertCtx = alertCanvas.getContext('2d');
-                
-                alertCtx.drawImage(monitoringVideoElement, 0, 0, alertCanvas.width, alertCanvas.height);
-                
-                alertCtx.strokeStyle = 'red';
-                alertCtx.lineWidth = 4;
-                humanDetections.forEach(p => {
-                    const [x, y, width, height] = p.bbox;
-                    alertCtx.strokeRect(x, y, width, height);
-                });
-                
-                const imageData = alertCanvas.toDataURL('image/png');
-    
-                await fetch('/api/ai-detection-signal', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: scope, state: true })
-                });
-    
-                // Send an email only once every 10 minutes to prevent spam.
-                // Handle both null initialization and numeric comparison
-                if (lastEmailTime === null || lastEmailTime === 0 || (Date.now() - lastEmailTime) > 600000) {
-                    await fetch('/api/send-detection-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_name: roomName, image_data: imageData })
-                    });
-                    lastEmailTime = Date.now();
-                }
-            } else {
-                console.log("notfound");
-                monitoringStatus.textContent = 'No human detected. Awaiting...';
-                if (scope) {
+                if(currentRoomId) {
                     await fetch('/api/ai-detection-signal', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room_id: scope, state: false })
+                        body: JSON.stringify({ room_id: currentRoomId, state: true })
+                    });
+                }
+    
+                // Rate-limit email alerts to once every 10 minutes (600,000 ms).
+                if (lastEmailTime === null || (Date.now() - lastEmailTime) > 600000) {
+                    console.log("Email time threshold passed. Sending alert...");
+                    const roomName = allRoomsData.find(r => r.id === currentRoomId)?.name || 'Unknown Room';
+    
+                    // Create alert canvas with proper dimensions
+                    const alertCanvas = document.createElement('canvas');
+                    alertCanvas.width = videoWidth;
+                    alertCanvas.height = videoHeight;
+                    const alertCtx = alertCanvas.getContext('2d');
+                    
+                    // Draw the video frame first
+                    alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+                    
+                    // Set up styling for bounding boxes
+                    alertCtx.strokeStyle = '#FF0000';
+                    alertCtx.lineWidth = 3;
+                    alertCtx.font = '16px Arial';
+                    
+                    // Draw bounding boxes around each detected person
+                    humanDetections.forEach((detection, index) => {
+                        const [x, y, width, height] = detection.bbox;
+                        
+                        // Draw the rectangle
+                        alertCtx.strokeRect(x, y, width, height);
+                        
+                        // Add confidence score label
+                        const confidence = Math.round(detection.score * 100);
+                        const label = `Person ${confidence}%`;
+                        
+                        // Draw label background
+                        const textMetrics = alertCtx.measureText(label);
+                        alertCtx.fillStyle = '#FF0000';
+                        alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
+                        
+                        // Draw label text
+                        alertCtx.fillStyle = '#FFFFFF';
+                        alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
+                        
+                        console.log(`Detection ${index + 1}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
+                    });
+                    
+                    try {
+                        // Convert to base64 for email - add error handling
+                        const imageData = alertCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size
+                        
+                        // Validate image data before sending
+                        if (imageData && imageData.length > 100) {
+                            await fetch('/api/send-detection-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ room_name: roomName, image_data: imageData })
+                            });
+                            
+                            lastEmailTime = Date.now();
+                            console.log("Detection email sent successfully");
+                        } else {
+                            console.error("Invalid image data for email");
+                        }
+                    } catch (emailError) {
+                        console.error("Failed to send detection email:", emailError);
+                    }
+                }
+    
+            } else {
+                console.log("notfound");
+                monitoringStatus.textContent = 'No human detected. Awaiting...';
+                if(currentRoomId) {
+                    await fetch('/api/ai-detection-signal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_id: currentRoomId, state: false })
                     });
                 }
             }
@@ -590,9 +502,10 @@
         }
         
         if (isMonitoring) {
-            monitoringIntervalId = setTimeout(() => detectHumans(scope), aiControlInterval);
+            monitoringIntervalId = setTimeout(detectHumans, monitoringInterval || 3000);
         }
     };
+
     
     
     const toggleMonitoring = async () => {
@@ -728,92 +641,6 @@
             }
         }
     };
-
-    const stopMonitoringStream = (scope) => {
-        isMonitoring = false;
-        if (scope === 'all') {
-            globalMonitoring = false;
-            sessionStorage.setItem('isGlobalMonitoring', 'false');
-        } else {
-            localMonitoringRoomId = null;
-            sessionStorage.removeItem('localMonitoringRoomId');
-        }
-
-        if (monitoringIntervalId) {
-            clearTimeout(monitoringIntervalId);
-            monitoringIntervalId = null;
-        }
-        if (monitoringStream) {
-            monitoringStream.getTracks().forEach(track => track.stop());
-            monitoringStream = null;
-        }
-        
-        monitoringCard.classList.add('hidden');
-        showNotification(`${scope === 'all' ? 'Global' : 'Per-room'} monitoring stopped.`, 'on');
-        
-        if (scope) {
-             fetch('/api/update-room-settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: scope, ai_control: false })
-            });
-        }
-    };
-
-
-    const renderRooms = (rooms) => {
-        const container = document.getElementById('room-container');
-        container.innerHTML = '';
-        
-        if (rooms.length > 0) {
-            document.getElementById('rooms-view').classList.remove('hidden');
-            document.getElementById('appliances-view').classList.add('hidden');
-            
-            rooms.forEach(room => {
-                const roomCard = document.createElement('div');
-                roomCard.setAttribute('data-slot', 'card');
-                roomCard.setAttribute('data-id', room.id);
-                roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all relative";
-                
-                const aiControlStatus = room.ai_control ? 'Yes' : 'No';
-                const aiStatusColor = room.ai_control ? 'text-green-500' : 'text-red-500';
-    
-                roomCard.innerHTML = `
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-xl font-bold cursor-pointer hover:underline" onclick="showAppliances('${room.id}')">${room.name}</h3>
-                        <div class="flex space-x-2">
-                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Room Settings" onclick="event.stopPropagation(); openRoomSettings('${room.id}')">
-                                <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <p class="text-gray-500">${room.appliances.length} Appliances</p>
-                    <p class="text-sm mt-2">AI Control: <span class="font-semibold ${aiStatusColor}">${aiControlStatus}</span></p>
-                `;
-                container.appendChild(roomCard);
-            });
-            
-            // Destroy existing sortable instance if it exists
-            if (roomSortable) {
-                roomSortable.destroy();
-            }
-            
-            // Initialize new sortable instance
-            roomSortable = new Sortable(container, {
-                animation: 150,
-                ghostClass: 'sortable-ghost',
-                onEnd: async (evt) => {
-                    if (evt.oldIndex !== evt.newIndex) {
-                        const newOrder = Array.from(container.children).map(child => child.dataset.id);
-                        await saveNewRoomOrder(newOrder);
-                    }
-                }
-            });
-        } else {
-            container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
-        }
-    };
-
 
     const toggleWebcam = async () => {
         if (webcamStream) {
@@ -999,6 +826,53 @@
         } catch (error) {
             console.error('Error fetching data:', error);
             showNotification('Failed to load data.', 'off');
+        }
+    };
+
+    const renderRooms = (rooms) => {
+        const container = document.getElementById('room-container');
+        container.innerHTML = '';
+        if (rooms.length > 0) {
+            document.getElementById('rooms-view').classList.remove('hidden');
+            document.getElementById('appliances-view').classList.add('hidden');
+            rooms.forEach(room => {
+                const roomCard = document.createElement('div');
+                roomCard.setAttribute('data-slot', 'card');
+                roomCard.setAttribute('data-id', room.id);
+                roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all relative";
+                
+                const aiControlStatus = room.ai_control ? 'Yes' : 'No';
+                const aiStatusColor = room.ai_control ? 'text-green-500' : 'text-red-500';
+
+                roomCard.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xl font-bold cursor-pointer hover:underline" onclick="showAppliances('${room.id}')">${room.name}</h3>
+                        <div class="flex space-x-2">
+                            <button class="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0" title="Room Settings" onclick="event.stopPropagation(); openRoomSettings('${room.id}')">
+                                <i class="h-4 w-4 fas fa-cog text-gray-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-gray-500">${room.appliances.length} Appliances</p>
+                    <p class="text-sm mt-2">AI Control: <span class="font-semibold ${aiStatusColor}">${aiControlStatus}</span></p>
+                `;
+                container.appendChild(roomCard);
+            });
+            if (roomSortable) {
+                roomSortable.destroy();
+            }
+            roomSortable = new Sortable(container, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: async (evt) => {
+                    if (evt.oldIndex !== evt.newIndex) {
+                        const newOrder = Array.from(container.children).map(child => child.dataset.id);
+                        await saveNewRoomOrder(newOrder);
+                    }
+                }
+            });
+        } else {
+            container.innerHTML = `<p class="text-center text-gray-500">No rooms added yet. Click "Add Room" to get started!</p>`;
         }
     };
 
@@ -1720,5 +1594,12 @@
             }
         });
     };
+
+    window.addEventListener('load', () => {
+        fetchRoomsAndAppliances();
+        setInterval(fetchRoomsAndAppliances, 3000);
+        initModalsAndListeners();
+        loadModel();
+    });
 </script>
 {% endblock %}
