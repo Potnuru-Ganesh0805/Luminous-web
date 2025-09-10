@@ -791,12 +791,15 @@ def ai_detection_signal():
         user_data = get_user_data()
         
         rooms_to_update = []
+        room_name_for_message = "your home"  # Set default for 'all'
+        
         if room_id == 'all':
             rooms_to_update = user_data['rooms']
         else:
             room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
             if room:
                 rooms_to_update.append(room)
+                room_name_for_message = room['name'] # Update for a specific room
         
         for room in rooms_to_update:
             for appliance in room['appliances']:
@@ -805,8 +808,6 @@ def ai_detection_signal():
         
         save_user_data(user_data)
 
-        # Get the room name for the notification message
-        room_name_for_message = "your home" if room_id == 'all' else room['name']
         action = "activated" if state else "deactivated"
         message = f"AI control for {room_name_for_message} has been {action}."
         
