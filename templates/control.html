@@ -111,9 +111,17 @@
     <div id="rooms-view" class="transition-transform duration-500">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold text-text-card-foreground">Rooms</h2>
-            <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                <i class="fas fa-plus-circle mr-2"></i>Add Room
-            </button>
+            <div class="flex space-x-4">
+                <button id="global-open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-camera mr-2"></i>Open Webcam
+                </button>
+                <button id="global-start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-eye mr-2"></i>Start Monitoring
+                </button>
+                <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                    <i class="fas fa-plus-circle mr-2"></i>Add Room
+                </button>
+            </div>
         </div>
         <div id="room-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Room cards will be dynamically inserted here -->
