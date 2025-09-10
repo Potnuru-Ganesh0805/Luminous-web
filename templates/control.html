@@ -176,6 +176,20 @@
         </button>
     </div>
 
+    <!-- NEW: Select Room Modal -->
+    <div id="select-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
+        <div class="bg-card p-6 rounded-lg shadow-xl w-80">
+            <h3 class="text-xl font-bold mb-4 text-text-card-foreground">Select a Room</h3>
+            <select id="global-room-selector" class="w-full p-2 border rounded-md bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:outline-none mb-4">
+                <!-- Options will be populated by JS -->
+            </select>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="button" id="cancel-select-room-btn" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                <button type="button" id="confirm-select-room-btn" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors">Start</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Room Settings Modal -->
     <div id="settings-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
@@ -366,6 +380,8 @@
     let aiControlInterval = 5000;
     let modelLoaded = false;
     let lastEmailTime = null;
+
+    let pendingGlobalAction = null; // 'webcam' or 'monitoring'
 
     const loadModel = async () => {
         if (model || modelLoaded) return;
@@ -800,6 +816,26 @@
                 return;
             }
         }
+    };
+
+    const openGlobalActionModal = (action) => {
+        pendingGlobalAction = action;
+        const selector = document.getElementById('global-room-selector');
+        selector.innerHTML = ''; // Clear previous options
+
+        if (allRoomsData.length === 0) {
+            showNotification('Please add a room first.', 'off');
+            return;
+        }
+
+        allRoomsData.forEach(room => {
+            const option = document.createElement('option');
+            option.value = room.id;
+            option.textContent = room.name;
+            selector.appendChild(option);
+        });
+
+        document.getElementById('select-room-modal').classList.remove('hidden');
     };
 
     const toggleWebcam = async () => {
@@ -1662,6 +1698,31 @@
         const confirmationModal = document.getElementById('confirmation-modal');
         const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
         const confirmActionBtn = document.getElementById('confirm-action-btn');
+
+        // NEW: Global Button Listeners
+        document.getElementById('global-open-webcam-btn').addEventListener('click', () => openGlobalActionModal('webcam'));
+        document.getElementById('global-start-monitoring-btn').addEventListener('click', () => openGlobalActionModal('monitoring'));
+
+        // NEW: Select Room Modal Listeners
+        document.getElementById('cancel-select-room-btn').addEventListener('click', () => {
+            document.getElementById('select-room-modal').classList.add('hidden');
+        });
+
+        document.getElementById('confirm-select-room-btn').addEventListener('click', () => {
+            const selectedRoomId = document.getElementById('global-room-selector').value;
+            if (selectedRoomId) {
+                showAppliances(selectedRoomId);
+                // Use a small timeout to ensure the view has switched before triggering the action
+                setTimeout(() => {
+                    if (pendingGlobalAction === 'webcam') {
+                        toggleWebcam();
+                    } else if (pendingGlobalAction === 'monitoring') {
+                        toggleMonitoring();
+                    }
+                }, 100); // 100ms delay is usually enough
+            }
+            document.getElementById('select-room-modal').classList.add('hidden');
+        });
         
         document.getElementById('add-room-btn').addEventListener('click', () => {
             document.getElementById('add-room-modal').classList.remove('hidden');
