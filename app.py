@@ -726,25 +726,52 @@ def change_password():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/set-global-ai-control', methods=['POST'])
+@login_required
+def set_global_ai_control():
+    try:
+        data_from_request = request.json
+        state = data_from_request['state']
+        user_data = get_user_data()
+
+        for room in user_data['rooms']:
+            room['ai_control'] = state
+        
+        save_user_data(user_data)
+        
+        action = "enabled" if state else "disabled"
+        message = f"AI control for all rooms has been {action}."
+        
+        return jsonify({"status": "success", "message": message}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/ai-detection-signal', methods=['POST'])
 @login_required
 def ai_detection_signal():
     try:
         data_from_request = request.json
-        room_id = data_from_request['room_id']
+        room_id = data_from_request.get('room_id') # Can be None for global
         state = data_from_request['state']
         
         user_data = get_user_data()
-        room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
-        if not room:
-            return jsonify({"status": "error", "message": "Room not found."}), 404
-        
-        # Turn on/off all unlocked appliances in the room
-        for appliance in room['appliances']:
-            if not appliance['locked']:
-                appliance['state'] = state
-        
-        # Update last command for ESP32 and save data
+
+        if room_id:
+            # Per-room control
+            room = next((r for r in user_data['rooms'] if r['id'] == room_id), None)
+            if not room:
+                return jsonify({"status": "error", "message": "Room not found."}), 404
+            
+            for appliance in room['appliances']:
+                if not appliance['locked']:
+                    appliance['state'] = state
+        else:
+            # Global control
+            for room in user_data['rooms']:
+                for appliance in room['appliances']:
+                    if not appliance['locked']:
+                        appliance['state'] = state
+
         user_data['last_command'] = {
             "room_id": room_id,
             "state": state,
@@ -753,12 +780,12 @@ def ai_detection_signal():
         
         save_user_data(user_data)
 
-        # Publish MQTT message for AI control
         if mqtt_client:
-            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"{current_user.id}:{room_id}:all:ai:{int(state)}")
+            topic_payload = f"{current_user.id}:{room_id or 'all'}:ai:{int(state)}"
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, topic_payload)
 
         action = "activated" if state else "deactivated"
-        message = f"AI control for room '{room['name']}' has been {action}."
+        message = f"AI control has been {action}."
         
         return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
@@ -771,27 +798,23 @@ def send_detection_email_thread(recipient, subject, body, image_data):
         with app.app_context():
             print(f"Preparing to send email to {recipient}...")
             try:
-                # Basic validation
                 if not recipient or not subject or not body:
                     print("Email sending failed: Missing required fields")
                     return
-               
-                # Create message with proper sender configuration
+                
                 msg = Message(
                     subject=subject,
                     recipients=[recipient]
                 )
                 msg.html = body
-               
-                # Handle image attachment if provided
+                
                 if image_data:
                     try:
-                        # Decode the base64 image and attach it
                         if ',' in image_data:
                             image_binary = base64.b64decode(image_data.split(',')[1])
                         else:
                             image_binary = base64.b64decode(image_data)
-                       
+                        
                         msg.attach(
                             "detection_alert.png",
                             "image/png",
@@ -799,27 +822,25 @@ def send_detection_email_thread(recipient, subject, body, image_data):
                         )
                     except Exception as img_error:
                         print(f"Error processing image attachment: {img_error}")
-                        # Continue without attachment if image processing fails
-               
-                # Send the email
+                        
                 mail.send(msg)
                 print(f"Email sent successfully to {recipient}!")
-               
+                
             except Exception as e:
-                # Log the exception for debugging
                 print(f"Error sending email: {e}")
     
-    # Start email sending in a separate thread
     email_thread = threading.Thread(target=send_email)
     email_thread.daemon = True
     email_thread.start()
+
 
 @app.route('/api/send-detection-email', methods=['POST'])
 @login_required
 def send_detection_email():
     try:
         data_from_request = request.json
-        room_name = data_from_request['room_name']
+        room_name = data_from_request.get('room_name')
+        is_global = data_from_request.get('is_global', False)
         image_data = data_from_request['image_data']
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         user_data = get_user_data()
@@ -829,7 +850,13 @@ def send_detection_email():
             print("No recipient email found in user settings. Email not sent.")
             return jsonify({"status": "error", "message": "User email not set for notifications."}), 400
         
-        subject = "Luminous Home System Alert: Motion Detected!"
+        if is_global:
+            subject = "Luminous Home System Alert: Human Detected at Home"
+            message_text = "A human has been detected at your home. All unlocked appliances have been activated."
+        else:
+            subject = "Luminous Home System Alert: Motion Detected!"
+            message_text = f"Motion has been detected in your room: {room_name}"
+
         body_html = f"""
         <html>
             <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -837,8 +864,8 @@ def send_detection_email():
                     <h2 style="color: #d9534f;">Luminous Home System Alert!</h2>
                     <hr style="border: 1px solid #ddd;">
                     <p>Dear {current_user.username},</p>
-                    <p>This is an automated alert from your Luminous Home System. Something is a bit fishy.</p>
-                    <p>Motion has been detected in your room: <strong>{room_name}</strong></p>
+                    <p>This is an automated alert from your Luminous Home System.</p>
+                    <p>{message_text}</p>
                     <p>Time of detection: <strong>{timestamp}</strong></p>
                     <p>Please find the captured image attached below:</p>
                     <img src="cid:myimage" alt="Motion Detection Alert" style="max-width: 100%; height: auto; border-radius: 5px;">
@@ -846,10 +873,9 @@ def send_detection_email():
             </body>
         </html>
         """
-       
-        # Send the email in a separate thread to prevent blocking
+        
         send_detection_email_thread(recipient_email, subject, body_html, image_data)
-       
+        
         print("API call to send email initiated.")
         return jsonify({"status": "success", "message": "Email alert sent."}), 200
         
