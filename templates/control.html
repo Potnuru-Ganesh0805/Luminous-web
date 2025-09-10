@@ -1034,32 +1034,6 @@
         }
     };
 
-    const renderAppliances = (appliances, roomName) => {
-        const container = document.getElementById('appliance-container');
-        container.innerHTML = '';
-        const appliancesHeading = document.getElementById('appliances-heading');
-        if (appliancesHeading) {
-            appliancesHeading.textContent = `${roomName} Appliances`;
-        }
-        document.getElementById('rooms-view').classList.add('hidden');
-        document.getElementById('appliances-view').classList.remove('hidden');
-
-        // Disable per-room monitoring buttons if global monitoring is active
-        const perRoomMonitoringBtn = document.getElementById('start-monitoring-btn');
-        if (isGlobalMonitoring) {
-            perRoomMonitoringBtn.disabled = true;
-            perRoomMonitoringBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        } else {
-            perRoomMonitoringBtn.disabled = false;
-            perRoomMonitoringBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-        
-        if (appliances.length > 0) {
-             // ... rest of the renderAppliances logic ...
-        } else {
-            container.innerHTML = `<p class="text-center text-gray-500">No appliances in this room yet. Click "Add Appliance" to get started!</p>`;
-        }
-    };
 
     const updateTimerDisplay = (card, appliance) => {
         const timerElement = card.querySelector('.timer-display');
