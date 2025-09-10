@@ -639,6 +639,41 @@ def save_appliance_order():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/global-ai-signal', methods=['POST'])
+def global_ai_signal():
+    """
+    Receives a signal for global AI control and updates all non-locked appliances.
+    """
+    data = request.get_json()
+    if data is None or 'state' not in data:
+        return jsonify({"status": "error", "message": "Invalid request"}), 400
+
+    human_detected = data.get('state', False)
+    action_str = "ON" if human_detected else "OFF"
+    updated_count = 0
+
+    try:
+        # Iterate through all rooms and all their appliances
+        for room in rooms:
+            for appliance in room['appliances']:
+                # Check if the appliance is NOT locked
+                if not appliance.get('locked', False):
+                    # Update the state in our backend data
+                    appliance['state'] = human_detected
+                    
+                    # Send the command to the physical relay
+                    control_relay(appliance['relay_number'], human_detected)
+                    
+                    updated_count += 1
+        
+        message = f"Global signal processed. Turned {action_str} {updated_count} unlocked appliances."
+        return jsonify({"status": "success", "message": message}), 200
+
+    except Exception as e:
+        print(f"Error processing global AI signal: {e}")
+        return jsonify({"status": "error", "message": "An internal error occurred"}), 500
+
+
 @app.route('/api/get-analytics', methods=['GET'])
 @login_required
 def get_analytics():
