@@ -380,6 +380,8 @@
     let pendingGlobalAction = null; // 'webcam' or 'monitoring'
     let isGlobalMonitoringActive = false;
 
+    let globalWebcamStream = null;
+
     const loadModel = async () => {
         if (model || modelLoaded) return;
         try {
