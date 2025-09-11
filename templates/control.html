@@ -1096,6 +1096,27 @@
         }
     };
 
+    const sendApplianceState = async (roomId, applianceId, state) => {
+        try {
+            const response = await fetch('/api/set-appliance-state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, appliance_id: applianceId, state: state })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification(result.message, state ? 'on' : 'off');
+                fetchRoomsAndAppliances();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to send command.', 'off');
+        }
+    };
+
+
     const renderRooms = (rooms) => {
         const container = document.getElementById('room-container');
         
