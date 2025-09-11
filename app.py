@@ -653,18 +653,28 @@ def global_ai_signal():
     updated_count = 0
 
     try:
-        # Iterate through all rooms and all their appliances
-        for room in rooms:
-            for appliance in room['appliances']:
-                # Check if the appliance is NOT locked
-                if not appliance.get('locked', False):
-                    # Update the state in our backend data
-                    appliance['state'] = human_detected
-                    
-                    # Send the command to the physical relay
-                    control_relay(appliance['relay_number'], human_detected)
-                    
-                    updated_count += 1
+        # Get all user data and iterate through all users and their rooms
+        all_data = load_data()
+        
+        for user_id, user_data in all_data.items():
+            if 'rooms' not in user_data:
+                continue
+                
+            # Iterate through all rooms for this user
+            for room in user_data['rooms']:
+                for appliance in room['appliances']:
+                    # Check if the appliance is NOT locked
+                    if not appliance.get('locked', False):
+                        # Update the state in our backend data
+                        appliance['state'] = human_detected
+                        updated_count += 1
+        
+        # Save the updated data back to file
+        save_data(all_data)
+        
+        # Send MQTT command for global control (if MQTT client exists)
+        if mqtt_client:
+            mqtt_client.publish(MQTT_TOPIC_COMMAND, f"global:all:ai:{int(human_detected)}")
         
         message = f"Global signal processed. Turned {action_str} {updated_count} unlocked appliances."
         return jsonify({"status": "success", "message": message}), 200
