@@ -110,17 +110,19 @@
     <!-- Main View: Rooms -->
     <div id="rooms-view" class="transition-transform duration-500">
         <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-bold text-text-card-foreground">Rooms</h2>
-            <div class="flex space-x-4">
-                <button id="global-open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-camera mr-2"></i>Open Webcam
-                </button>
-                <button id="global-start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-eye mr-2"></i>Start Monitoring
-                </button>
-                <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                    <i class="fas fa-plus-circle mr-2"></i>Add Room
-                </button>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-text-card-foreground">Rooms</h2>
+                <div class="flex space-x-4">
+                    <button id="global-open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                        <i class="fas fa-camera mr-2"></i>Open Webcam
+                    </button>
+                    <button id="global-start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                        <i class="fas fa-eye mr-2"></i>Start Monitoring
+                    </button>
+                    <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
+                        <i class="fas fa-plus-circle mr-2"></i>Add Room
+                    </button>
+                </div>
             </div>
         </div>
         <!-- ADD THIS NEW CONTAINER -->
@@ -130,6 +132,11 @@
         <div id="room-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Room cards will be dynamically inserted here -->
         </div>
+    </div>
+
+    <div id="global-monitoring-card" class="hidden w-full max-w-lg mx-auto mb-4 p-4 bg-card border rounded-lg shadow-md text-center">
+        <h3 class="text-lg font-semibold mb-2">Global AI Monitoring Active</h3>
+        <p id="global-monitoring-status" class="text-lg text-teal-500 font-bold">Initializing...</p>
     </div>
     
     <!-- Appliance View -->
@@ -528,7 +535,9 @@
             }
         } catch (error) {
             console.error("Error during detection:", error);
-            const statusElement = isGlobalMonitoringActive ? globalMonitoringStatus : monitoringStatus;
+            const statusElement = isGlobalMonitoringActive ? 
+                document.getElementById('global-monitoring-status') : 
+                document.getElementById('monitoring-status');
             statusElement.textContent = 'Error during detection.';
         }
         
@@ -665,12 +674,16 @@
     
     const toggleGlobalMonitoring = async () => {
         const button = document.getElementById('global-start-monitoring-btn');
+        const card = document.getElementById('global-monitoring-card');
+        
         if (isGlobalMonitoringActive) {
             isGlobalMonitoringActive = false;
             isMonitoring = false;
             if (monitoringIntervalId) clearTimeout(monitoringIntervalId);
             if (monitoringStream) monitoringStream.getTracks().forEach(track => track.stop());
             monitoringStream = null;
+            
+            card.classList.add('hidden'); // Hide the card when stopping
             button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
             showNotification('Global AI monitoring stopped.', 'on');
             fetchRoomsAndAppliances();
@@ -678,13 +691,13 @@
              try {
                 if (!model) await loadModel();
                 if (!model) return;
-
+                
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 monitoringStream = stream;
                 monitoringVideoElement.srcObject = stream;
                 monitoringVideoElement.style.display = 'none';
                 document.body.appendChild(monitoringVideoElement);
-
+                
                 // *** THE KEY FIX IS HERE ***
                 // Wait for the video to be ready before proceeding
                 await new Promise((resolve) => {
@@ -692,11 +705,12 @@
                         resolve();
                     };
                 });
-
                 await monitoringVideoElement.play();
                 
                 isGlobalMonitoringActive = true;
-                isMonitoring = true; 
+                isMonitoring = true;
+                
+                card.classList.remove('hidden'); // Show the card when starting
                 button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
                 showNotification('Global AI monitoring started.', 'on');
                 
@@ -707,7 +721,7 @@
                  console.error(err);
              }
         }
-    };    
+    };
         
     
     const toggleMonitoring = async () => {
