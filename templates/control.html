@@ -388,77 +388,32 @@
     };
     
     const detectHumans = async () => {
-        // Determine if we're in global monitoring mode
-        const isCurrentlyGlobal = isGlobalMonitoring;
-        const currentRoom = isCurrentlyGlobal ? null : allRoomsData.find(r => r.id === currentRoomId);
-        const activeMonitoringStream = isCurrentlyGlobal ? globalMonitoringStream : monitoringStream;
-        const activeMonitoringVideo = isCurrentlyGlobal ? monitoringVideo : monitoringVideoElement;
-    
-        // Check if monitoring should continue
-        if ((!isMonitoring && !isCurrentlyGlobal) || !model) {
-            console.log("Monitoring stopped or model not available.");
-            if (activeMonitoringStream) {
-                activeMonitoringStream.getTracks().forEach(track => track.stop());
-                if (isCurrentlyGlobal) {
-                    globalMonitoringStream = null;
-                } else {
-                    monitoringStream = null;
-                }
-            }
-            return;
+        // Stop if monitoring is turned off in any way
+        if (!isMonitoring || !model) {
+            return; 
         }
-    
-        // Check if stream/model is available
-        if (!activeMonitoringStream || !model) {
-            console.log("Monitoring stopped or stream/model not available.");
-            if (isCurrentlyGlobal) {
-                toggleGlobalMonitoring();
-            } else {
-                toggleMonitoring();
-            }
-            return;
-        }
-    
-        // Use appropriate video element - prefer dynamic selection
-        const videoElement = activeMonitoringVideo;
         
-        if (!videoElement || !videoElement.srcObject) {
+        // Check if the video stream is valid
+        if (!monitoringVideoElement || !monitoringVideoElement.srcObject || monitoringVideoElement.paused) {
             console.log("Monitoring stream not available, stopping detection.");
-            if (isCurrentlyGlobal) {
-                toggleGlobalMonitoring();
-            } else {
-                toggleMonitoring();
-            }
+            // Shut down the correct monitoring mode
+            if (isGlobalMonitoringActive) toggleGlobalMonitoring();
+            else toggleMonitoring();
             return;
         }
     
-        // Create canvas for detection - prefer dynamic sizing
-        let canvas;
-        if (webcamCanvas && webcamCanvas.getContext) {
-            // Use existing canvas if available
-            canvas = webcamCanvas;
-        } else {
-            // Create temporary canvas
-            canvas = document.createElement('canvas');
-        }
-        
-        // Ensure proper canvas dimensions
-        const videoWidth = videoElement.videoWidth || 640;
-        const videoHeight = videoElement.videoHeight || 480;
-        canvas.width = videoWidth;
-        canvas.height = videoHeight;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        const ctx = webcamCanvas.getContext('2d');
+        webcamCanvas.width = monitoringVideoElement.videoWidth;
+        webcamCanvas.height = monitoringVideoElement.videoHeight;
+        ctx.drawImage(monitoringVideoElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
         
         try {
-            const predictions = await model.detect(canvas);
+            const predictions = await model.detect(webcamCanvas);
             const humanDetections = predictions.filter(p => p.class === 'person');
             const humanDetected = predictions.some(p => p.class === 'person');
             
-            if (isCurrentlyGlobal) {
+            if (isGlobalMonitoringActive) {
                 // GLOBAL LOGIC
-                // The backend will handle turning on/off all unlocked appliances
                 await fetch('/api/global-ai-signal', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -467,56 +422,53 @@
                 console.log(`Global signal sent: humanDetected=${humanDetected}`);
                 
                 // Update global status
-                const statusElement = globalMonitoringStatus;
                 if (humanDetected) {
-                    statusElement.textContent = 'Human detected! All unlocked appliances are active.';
+                    globalMonitoringStatus.textContent = 'Human detected! All unlocked appliances are active.';
                 } else {
-                    statusElement.textContent = 'No human detected. Awaiting...';
+                    globalMonitoringStatus.textContent = 'No human detected. Awaiting...';
                 }
             } else {
-                // PER-ROOM LOGIC (Existing Logic)
-                const statusElement = monitoringStatus;
+                // PER-ROOM LOGIC
+                const currentRoom = allRoomsData.find(r => r.id === currentRoomId);
                 
-                // Prepare API request parameters
-                let apiEndpoint = '/api/ai-detection-signal';
-                let requestBody = { state: humanDetected, room_id: currentRoomId };
-                let emailParams = { image_data: null, room_name: null, is_global: false };
-    
                 if (humanDetected) {
                     console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
                     
                     const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
-                    statusElement.textContent = `Human detected in ${roomName}! AI is in control.`;
-                    emailParams.room_name = roomName;
+                    monitoringStatus.textContent = `Human detected in ${roomName}! AI is in control.`;
+                    
+                    await fetch('/api/ai-detection-signal', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ room_id: currentRoomId, state: true })
+                    });
                 } else {
                     console.log("notfound");
                     
                     const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
-                    statusElement.textContent = `No human detected in ${roomName}. Awaiting...`;
-                    emailParams.room_name = roomName;
-                }
-    
-                // Send AI detection signal to backend
-                if (currentRoomId) {
-                    await fetch(apiEndpoint, {
+                    monitoringStatus.textContent = `No human detected in ${roomName}. Awaiting...`;
+                    
+                    await fetch('/api/ai-detection-signal', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(requestBody)
+                        body: JSON.stringify({ room_id: currentRoomId, state: false })
                     });
                 }
-    
+                
                 // Rate-limit email alerts to once every 10 minutes (600,000 ms) per detection type
                 if (humanDetected && (lastEmailTime === null || (Date.now() - lastEmailTime) > 600000)) {
                     console.log("Email time threshold passed. Sending alert...");
                     
                     // Create alert canvas with proper dimensions and enhanced visualization
                     const alertCanvas = document.createElement('canvas');
+                    const videoWidth = monitoringVideoElement.videoWidth || 640;
+                    const videoHeight = monitoringVideoElement.videoHeight || 480;
                     alertCanvas.width = videoWidth;
                     alertCanvas.height = videoHeight;
                     const alertCtx = alertCanvas.getContext('2d');
                     
                     // Draw the video frame first
-                    alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+                    alertCtx.drawImage(monitoringVideoElement, 0, 0, videoWidth, videoHeight);
                     
                     // Set up styling for bounding boxes
                     alertCtx.strokeStyle = '#FF0000';
@@ -552,12 +504,16 @@
                         
                         // Validate image data before sending
                         if (imageData && imageData.length > 100) {
-                            emailParams.image_data = imageData;
+                            const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
                             
                             await fetch('/api/send-detection-email', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(emailParams)
+                                body: JSON.stringify({
+                                    image_data: imageData,
+                                    room_name: roomName,
+                                    is_global: false
+                                })
                             });
                             
                             lastEmailTime = Date.now();
@@ -570,17 +526,15 @@
                     }
                 }
             }
-    
         } catch (error) {
             console.error("Error during detection:", error);
-            const statusElement = isCurrentlyGlobal ? globalMonitoringStatus : monitoringStatus;
+            const statusElement = isGlobalMonitoringActive ? globalMonitoringStatus : monitoringStatus;
             statusElement.textContent = 'Error during detection.';
         }
         
-        // Schedule next detection cycle
-        if (isCurrentlyGlobal || isMonitoring) {
-            const interval = aiControlInterval || monitoringInterval || 3000;
-            monitoringIntervalId = setTimeout(detectHumans, interval);
+        // Schedule the next check
+        if (isMonitoring) {
+            monitoringIntervalId = setTimeout(detectHumans, aiControlInterval);
         }
     };
 
@@ -711,134 +665,49 @@
     
     const toggleGlobalMonitoring = async () => {
         const button = document.getElementById('global-start-monitoring-btn');
-        
-        if (isGlobalMonitoringActive || isGlobalMonitoring) {
-            // Stop global monitoring
+        if (isGlobalMonitoringActive) {
             isGlobalMonitoringActive = false;
-            isGlobalMonitoring = false;
-            isMonitoring = false; // Also turn off the general flag
-            
-            // Clear intervals and timeouts
+            isMonitoring = false;
             if (monitoringIntervalId) clearTimeout(monitoringIntervalId);
-            if (globalMonitoringIntervalId) clearTimeout(globalMonitoringIntervalId);
-            
-            // Stop all media streams
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
-            }
-            if (globalMonitoringStream) {
-                globalMonitoringStream.getTracks().forEach(track => track.stop());
-                globalMonitoringStream = null;
-            }
-            
-            // Update UI elements
-            if (button) {
-                button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
-            }
-            if (globalMonitoringBtn) {
-                globalMonitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
-            }
-            if (globalMonitoringCard) {
-                globalMonitoringCard.classList.add('hidden');
-            }
-            
+            if (monitoringStream) monitoringStream.getTracks().forEach(track => track.stop());
+            monitoringStream = null;
+            button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
             showNotification('Global AI monitoring stopped.', 'on');
-            
-            // Send API request to update server state
-            try {
-                await fetch('/api/set-global-ai-control', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ state: false })
-                });
-            } catch (err) {
-                console.error('Failed to update server state:', err);
-            }
-            
-            fetchRoomsAndAppliances(); // Re-render to re-enable per-room buttons
-            
+            fetchRoomsAndAppliances();
         } else {
-            // Start global monitoring
-            try {
-                // Load model if not already loaded
-                if (!model && !modelLoaded) await loadModel();
-                if (!model && !modelLoaded) {
-                    showNotification('AI model failed to load.', 'off');
-                    return;
-                }
-                
-                // Get user media stream
+             try {
+                if (!model) await loadModel();
+                if (!model) return;
+
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 monitoringStream = stream;
-                globalMonitoringStream = stream;
+                monitoringVideoElement.srcObject = stream;
+                monitoringVideoElement.style.display = 'none';
+                document.body.appendChild(monitoringVideoElement);
+
+                // *** THE KEY FIX IS HERE ***
+                // Wait for the video to be ready before proceeding
+                await new Promise((resolve) => {
+                    monitoringVideoElement.onloadedmetadata = () => {
+                        resolve();
+                    };
+                });
+
+                await monitoringVideoElement.play();
                 
-                // Setup video element for monitoring
-                let videoElement = monitoringVideoElement || monitoringVideo;
-                if (!videoElement) {
-                    videoElement = document.createElement('video');
-                    videoElement.style.display = 'none';
-                    document.body.appendChild(videoElement);
-                    monitoringVideo = videoElement;
-                    monitoringVideoElement = videoElement;
-                }
-                
-                videoElement.srcObject = stream;
-                await videoElement.play();
-                
-                // Update state flags
                 isGlobalMonitoringActive = true;
-                isGlobalMonitoring = true;
-                isMonitoring = true; // Also set the general flag
-                
-                // Update UI elements
-                if (button) {
-                    button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
-                }
-                if (globalMonitoringBtn) {
-                    globalMonitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
-                }
-                if (globalMonitoringCard) {
-                    globalMonitoringCard.classList.remove('hidden');
-                }
-                
+                isMonitoring = true; 
+                button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
                 showNotification('Global AI monitoring started.', 'on');
                 
-                // Send API request to update server state
-                try {
-                    await fetch('/api/set-global-ai-control', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ state: true })
-                    });
-                } catch (err) {
-                    console.error('Failed to update server state:', err);
-                }
-                
-                detectHumans(); // Start the detection loop
-                fetchRoomsAndAppliances(); // Re-render to disable per-room buttons
-                
-            } catch (err) {
-                console.error("Error starting global monitoring:", err);
-                showNotification('Failed to start global monitoring. Check camera permissions.', 'off');
-                
-                // Clean up on error
-                if (monitoringStream) {
-                    monitoringStream.getTracks().forEach(track => track.stop());
-                    monitoringStream = null;
-                }
-                if (globalMonitoringStream) {
-                    globalMonitoringStream.getTracks().forEach(track => track.stop());
-                    globalMonitoringStream = null;
-                }
-                isGlobalMonitoringActive = false;
-                isGlobalMonitoring = false;
-                isMonitoring = false;
-            }
+                detectHumans(); // Now it's safe to start the loop
+                fetchRoomsAndAppliances();
+             } catch (err) {
+                 showNotification('Failed to start global monitoring. Check camera permissions.', 'off');
+                 console.error(err);
+             }
         }
-    };
-
-    
+    };    
         
     
     const toggleMonitoring = async () => {
