@@ -428,11 +428,16 @@
                 });
                 console.log(`Global signal sent: humanDetected=${humanDetected}`);
                 
-                // Update global status
-                if (humanDetected) {
-                    globalMonitoringStatus.textContent = 'Human detected! All unlocked appliances are active.';
+                // Update global status - check if element exists first
+                const globalStatusElement = document.getElementById('global-monitoring-status');
+                if (globalStatusElement) {
+                    if (humanDetected) {
+                        globalStatusElement.textContent = 'Human detected! All unlocked appliances are active.';
+                    } else {
+                        globalStatusElement.textContent = 'No human detected. Awaiting...';
+                    }
                 } else {
-                    globalMonitoringStatus.textContent = 'No human detected. Awaiting...';
+                    console.warn('global-monitoring-status element not found');
                 }
             } else {
                 // PER-ROOM LOGIC
@@ -442,7 +447,10 @@
                     console.log("Human detected. JSON response:", JSON.stringify(humanDetections, null, 2));
                     
                     const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
-                    monitoringStatus.textContent = `Human detected in ${roomName}! AI is in control.`;
+                    const statusElement = document.getElementById('monitoring-status');
+                    if (statusElement) {
+                        statusElement.textContent = `Human detected in ${roomName}! AI is in control.`;
+                    }
                     
                     await fetch('/api/ai-detection-signal', {
                          method: 'POST',
@@ -453,7 +461,10 @@
                     console.log("notfound");
                     
                     const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
-                    monitoringStatus.textContent = `No human detected in ${roomName}. Awaiting...`;
+                    const statusElement = document.getElementById('monitoring-status');
+                    if (statusElement) {
+                        statusElement.textContent = `No human detected in ${roomName}. Awaiting...`;
+                    }
                     
                     await fetch('/api/ai-detection-signal', {
                         method: 'POST',
@@ -535,10 +546,17 @@
             }
         } catch (error) {
             console.error("Error during detection:", error);
+            
+            // Safer status element selection with error handling
             const statusElement = isGlobalMonitoringActive ? 
                 document.getElementById('global-monitoring-status') : 
                 document.getElementById('monitoring-status');
-            statusElement.textContent = 'Error during detection.';
+                
+            if (statusElement) {
+                statusElement.textContent = 'Error during detection.';
+            } else {
+                console.warn('Status element not found for error display');
+            }
         }
         
         // Schedule the next check
