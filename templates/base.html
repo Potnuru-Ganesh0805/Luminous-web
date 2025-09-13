@@ -10,7 +10,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="{{ url_for('static', filename='themes.js') }}"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -19,12 +18,10 @@
 </head>
 <body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen font-sans flex flex-col">
 
-    <!-- Loading Screen -->
     <div id="loading-screen" class="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-[100] flex items-center justify-center transition-opacity duration-700 opacity-100">
         <div class="loader-circle"></div>
     </div>
 
-    <!-- Mobile Header -->
     <header class="bg-gray-200 dark:bg-gray-800 p-4 flex justify-between items-center md:hidden shadow-lg">
         <h1 class="text-2xl font-bold text-blue-600">Lumino'US'</h1>
         <button id="mobile-menu-btn" class="text-gray-700 dark:text-gray-300 focus:outline-none">
@@ -33,59 +30,56 @@
     </header>
 
     <div class="flex flex-grow">
-        <!-- Sidebar Navigation -->
-        <aside id="sidebar" class="bg-gray-200 dark:bg-gray-800 w-full md:w-64 p-6 flex-col items-center shadow-lg transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out fixed inset-y-0 z-50 md:sticky md:flex">
-            <h1 class="text-3xl font-bold text-blue-600 mb-8">Lumino'US'</h1>
-            <nav class="flex flex-col space-y-4 w-full">
-                <a href="{{ url_for('home') }}" class="nav-link {% if request.path == url_for('home') %}active{% endif %}">
-                    <i class="fas fa-home mr-3"></i>Home
-                </a>
-                <a href="{{ url_for('control') }}" class="nav-link {% if request.path == url_for('control') %}active{% endif %}">
-                    <i class="fas fa-toggle-on mr-3"></i>Control Panel
-                </a>
-                <a href="{{ url_for('analytics') }}" class="nav-link {% if request.path == url_for('analytics') %}active{% endif %}">
-                    <i class="fas fa-chart-line mr-3"></i>Analytics
-                </a>
-                <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == url_for('settings') %}active{% endif %}">
-                    <i class="fas fa-cogs mr-3"></i>Settings
-                </a>
-                <a href="{{ url_for('contact') }}" class="nav-link {% if request.path == url_for('contact') %}active{% endif %}">
-                    <i class="fas fa-envelope mr-3"></i>Contact Us
-                </a>
-            </nav>
+        <aside id="sidebar" class="bg-gray-200 dark:bg-gray-800 w-full md:w-64 flex flex-col shadow-lg transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out fixed inset-y-0 h-screen z-50 md:sticky">
             
-            <!-- User Profile and Logout in Sidebar -->
-            <div class="mt-auto w-full pt-6">
-                <div class="flex items-center space-x-3 text-gray-600 dark:text-gray-400 mb-4">
-                    <i class="fas fa-user-circle text-2xl"></i>
-                    <span id="user-name">Guest</span>
+            <div class="p-6">
+                <h1 class="text-3xl font-bold text-blue-600">Lumino'US'</h1>
+            </div>
+
+            <div class="flex-grow overflow-y-auto px-6">
+                <nav class="flex flex-col space-y-4 w-full">
+                    <a href="{{ url_for('home') }}" class="nav-link {% if request.path == url_for('home') %}active{% endif %}">
+                        <i class="fas fa-home mr-3"></i>Home
+                    </a>
+                    <a href="{{ url_for('control') }}" class="nav-link {% if request.path == url_for('control') %}active{% endif %}">
+                        <i class="fas fa-toggle-on mr-3"></i>Control Panel
+                    </a>
+                    <a href="{{ url_for('analytics') }}" class="nav-link {% if request.path == url_for('analytics') %}active{% endif %}">
+                        <i class="fas fa-chart-line mr-3"></i>Analytics
+                    </a>
+                    <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == url_for('settings') %}active{% endif %}">
+                        <i class="fas fa-cogs mr-3"></i>Settings
+                    </a>
+                    <a href="{{ url_for('contact') }}" class="nav-link {% if request.path == url_for('contact') %}active{% endif %}">
+                        <i class="fas fa-envelope mr-3"></i>Contact Us
+                    </a>
+                </nav>
+            </div>
+            
+            <div class="p-6 border-t border-gray-300 dark:border-gray-700">
+                <div class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 mb-4">
+                    <img id="user-picture" src="https://via.placeholder.com/150" alt="Profile Picture" class="w-10 h-10 rounded-full object-cover">
+                    <span id="user-name" class="font-semibold">Guest</span>
                 </div>
-                <a href="{{ url_for('logout') }}" class="nav-link w-full text-center bg-red-500 hover:bg-red-600 text-white font-bold">
+                <a href="{{ url_for('logout') }}" class="nav-link w-full text-center bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold">
                     <i class="fas fa-sign-out-alt mr-2"></i>Logout
                 </a>
             </div>
         </aside>
 
-        <!-- Main Content Area -->
-        <main class="flex-grow p-8">
+        <main class="flex-grow p-4 md:p-8">
             <div id="notification-area" class="fixed bottom-4 right-4 z-50"></div>
             {% block content %}{% endblock %}
         </main>
     </div>
 
-    <!-- Footer -->
     <footer class="bg-gray-200 dark:bg-gray-800 text-center py-4 text-sm text-gray-600 dark:text-gray-400">
         <p>&copy; 2024 Lumino'US'. All rights reserved.</p>
     </footer>
 
-    <!-- Shared JavaScript -->
     <script src="{{ url_for('static', filename='themes.js') }}"></script>
     <script>
-        /**
-         * Displays a stackable notification message in the top-right corner.
-         * @param {string} message The message to display.
-         * @param {string} type The type of notification ('on' for success, 'off' for error).
-         */
+        // ... (Your existing showNotification function goes here) ...\
         function showNotification(message, type) {
             // --- 1. Find or Create the Notification Container ---
             let container = document.getElementById('notification-container');
@@ -172,15 +166,24 @@
             }, 10);
         }
 
-        const fetchUserName = async () => {
+        // MODIFICATION: Renamed function and added logic to update the profile picture
+        const fetchUserProfile = async () => {
             try {
                 const response = await fetch('/api/get-user-settings');
+                if (!response.ok) return; // Fail silently if not logged in
                 const data = await response.json();
+                
                 if (data.name) {
                     document.getElementById('user-name').textContent = data.name;
                 }
+                if (data.picture) {
+                    document.getElementById('user-picture').src = data.picture;
+                } else {
+                    // Fallback to a default icon if no picture is available
+                    document.getElementById('user-picture').src = "https://static.vecteezy.com/system/resources/thumbnails/009/292/244/small/default-avatar-icon-of-social-media-user-vector.jpg";
+                }
             } catch (error) {
-                console.error("Failed to fetch user name:", error);
+                console.error("Failed to fetch user profile:", error);
             }
         };
 
@@ -193,6 +196,18 @@
                 }, 700);
             }
         };
+
+        const fetchUserName = async () => {
+            try {
+                const response = await fetch('/api/get-user-settings');
+                const data = await response.json();
+                if (data.name) {
+                    document.getElementById('user-name').textContent = data.name;
+                }
+            } catch (error) {
+                console.error("Failed to fetch user name:", error);
+            }
+        };
         
         // Mobile sidebar toggle
         document.getElementById('mobile-menu-btn').addEventListener('click', () => {
@@ -202,7 +217,7 @@
 
         window.addEventListener('load', () => {
             hideLoadingScreen();
-            fetchUserName();
+            fetchUserProfile(); // Call the updated function
         });
     </script>
 </body>
