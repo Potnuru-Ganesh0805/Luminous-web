@@ -397,147 +397,259 @@
             showNotification('Failed to load AI model.', 'off');
         }
     };
+
     
-    const detectHumans = async (roomId) => {
-        const monitor = activeMonitors.get(roomId);
-        // Stop the loop if the monitor has been cancelled
-        if (!monitor || !monitor.isRunning) {
-            console.log(`Detection loop for room ${roomId} is stopping.`);
-            return; 
-        }
-        
-        const videoElement = monitor.videoElement;
-        if (!videoElement.srcObject || videoElement.paused) {
-            console.error(`Stream for room ${roomId} is not available. Stopping monitor.`);
-            toggleMonitoring(roomId); // Gracefully shut down
-            return;
-        }
-        
-        const webcamCanvas = document.createElement('canvas');
-        webcamCanvas.width = videoElement.videoWidth;
-        webcamCanvas.height = videoElement.videoHeight;
-        const ctx = webcamCanvas.getContext('2d');
-        ctx.drawImage(videoElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
-        
-        try {
-            const predictions = await model.detect(webcamCanvas);
-            const humanDetections = predictions.filter(p => p.class === 'person');
-            const humanDetected = predictions.some(p => p.class === 'person');
-            
-            // This function now only performs PER-ROOM logic
-            await fetch('/api/ai-detection-signal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, state: humanDetected })
-            });
-            
-            // Update the UI card only if the user is currently viewing that room
-            if (roomId === currentRoomId) {
-                const currentRoom = allRoomsData.find(r => r.id === roomId);
-                const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
-                const statusElement = document.getElementById('monitoring-status');
-                
-                if (statusElement) {
-                    if (humanDetected) {
-                        statusElement.textContent = `Human detected in ${roomName}! AI is in control.`;
-                    } else {
-                        statusElement.textContent = `No human detected in ${roomName}. Awaiting...`;
-                    }
-                }
+    
+    const detectHumans = async (roomId) => { // roomId is now optional
+        // --- Case 1: This is a GLOBAL monitoring loop ---
+        if (!roomId && isGlobalMonitoringActive) {
+            if (!isMonitoring || !model) return; // Stop if turned off
+            const videoElement = monitoringVideoElement; // Use the single global video element
+            if (!videoElement.srcObject || videoElement.paused) {
+                console.log("Global monitoring stream not available, stopping detection.");
+                toggleGlobalMonitoring();
+                return;
             }
+            const canvas = document.createElement('canvas');
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             
-            // Rate-limit email alerts to once every 10 minutes (600,000 ms) per room
-            // Use room-specific lastEmailTime tracking
-            if (!monitor.lastEmailTime) {
-                monitor.lastEmailTime = null;
-            }
-            
-            if (humanDetected && (monitor.lastEmailTime === null || (Date.now() - monitor.lastEmailTime) > 600000)) {
-                console.log(`Email time threshold passed for room ${roomId}. Sending alert...`);
+            try {
+                const predictions = await model.detect(canvas);
+                const humanDetections = predictions.filter(p => p.class === 'person');
+                const humanDetected = predictions.some(p => p.class === 'person');
+                const statusElement = document.getElementById('global-monitoring-status');
+                statusElement.textContent = humanDetected ? 'Human detected! Controlling all appliances.' : 'No human detected. Awaiting...';
                 
-                // Create alert canvas with proper dimensions and enhanced visualization
-                const alertCanvas = document.createElement('canvas');
-                const videoWidth = videoElement.videoWidth || 640;
-                const videoHeight = videoElement.videoHeight || 480;
-                alertCanvas.width = videoWidth;
-                alertCanvas.height = videoHeight;
-                const alertCtx = alertCanvas.getContext('2d');
-                
-                // Draw the video frame first
-                alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
-                
-                // Set up styling for bounding boxes
-                alertCtx.strokeStyle = '#FF0000';
-                alertCtx.lineWidth = 3;
-                alertCtx.font = '16px Arial';
-                
-                // Draw bounding boxes around each detected person
-                humanDetections.forEach((detection, index) => {
-                    const [x, y, width, height] = detection.bbox;
-                    
-                    // Draw the rectangle
-                    alertCtx.strokeRect(x, y, width, height);
-                    
-                    // Add confidence score label
-                    const confidence = Math.round(detection.score * 100);
-                    const label = `Person ${confidence}%`;
-                    
-                    // Draw label background
-                    const textMetrics = alertCtx.measureText(label);
-                    alertCtx.fillStyle = '#FF0000';
-                    alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
-                    
-                    // Draw label text
-                    alertCtx.fillStyle = '#FFFFFF';
-                    alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
-                    
-                    console.log(`Detection ${index + 1} in room ${roomId}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
+                await fetch('/api/global-ai-signal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: humanDetected })
                 });
                 
-                try {
-                    // Convert to base64 for email - add error handling
-                    const imageData = alertCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size
+                // Global email alerts - rate-limited to once every 10 minutes
+                if (!window.globalLastEmailTime) {
+                    window.globalLastEmailTime = null;
+                }
+                
+                if (humanDetected && (window.globalLastEmailTime === null || (Date.now() - window.globalLastEmailTime) > 600000)) {
+                    console.log("Global email time threshold passed. Sending alert...");
                     
-                    // Validate image data before sending
-                    if (imageData && imageData.length > 100) {
-                        const currentRoom = allRoomsData.find(r => r.id === roomId);
-                        const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
+                    // Create alert canvas with proper dimensions and enhanced visualization
+                    const alertCanvas = document.createElement('canvas');
+                    const videoWidth = videoElement.videoWidth || 640;
+                    const videoHeight = videoElement.videoHeight || 480;
+                    alertCanvas.width = videoWidth;
+                    alertCanvas.height = videoHeight;
+                    const alertCtx = alertCanvas.getContext('2d');
+                    
+                    // Draw the video frame first
+                    alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+                    
+                    // Set up styling for bounding boxes
+                    alertCtx.strokeStyle = '#FF0000';
+                    alertCtx.lineWidth = 3;
+                    alertCtx.font = '16px Arial';
+                    
+                    // Draw bounding boxes around each detected person
+                    humanDetections.forEach((detection, index) => {
+                        const [x, y, width, height] = detection.bbox;
                         
-                        await fetch('/api/send-detection-email', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                image_data: imageData,
-                                room_name: roomName,
-                                room_id: roomId,
-                                is_global: false
-                            })
-                        });
+                        // Draw the rectangle
+                        alertCtx.strokeRect(x, y, width, height);
                         
-                        monitor.lastEmailTime = Date.now();
-                        console.log(`Detection email sent successfully for room ${roomId}`);
-                    } else {
-                        console.error(`Invalid image data for email in room ${roomId}`);
+                        // Add confidence score label
+                        const confidence = Math.round(detection.score * 100);
+                        const label = `Person ${confidence}%`;
+                        
+                        // Draw label background
+                        const textMetrics = alertCtx.measureText(label);
+                        alertCtx.fillStyle = '#FF0000';
+                        alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
+                        
+                        // Draw label text
+                        alertCtx.fillStyle = '#FFFFFF';
+                        alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
+                        
+                        console.log(`Global Detection ${index + 1}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
+                    });
+                    
+                    try {
+                        // Convert to base64 for email
+                        const imageData = alertCanvas.toDataURL('image/jpeg', 0.8);
+                        
+                        // Validate image data before sending
+                        if (imageData && imageData.length > 100) {
+                            await fetch('/api/send-detection-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    image_data: imageData,
+                                    room_name: 'Global Monitoring',
+                                    room_id: 'global',
+                                    is_global: true
+                                })
+                            });
+                            
+                            window.globalLastEmailTime = Date.now();
+                            console.log("Global detection email sent successfully");
+                        } else {
+                            console.error("Invalid image data for global email");
+                        }
+                    } catch (emailError) {
+                        console.error("Failed to send global detection email:", emailError);
                     }
-                } catch (emailError) {
-                    console.error(`Failed to send detection email for room ${roomId}:`, emailError);
                 }
+                
+            } catch (error) {
+                console.error("Error during global detection:", error);
             }
             
-        } catch (error) {
-            console.error(`Error during detection for room ${roomId}:`, error);
-            
-            // Update status element only if user is viewing this room
-            if (roomId === currentRoomId) {
-                const statusElement = document.getElementById('monitoring-status');
-                if (statusElement) {
-                    statusElement.textContent = 'Error during detection.';
-                }
+            // Reschedule the global loop
+            if (isGlobalMonitoringActive) {
+                monitoringIntervalId = setTimeout(() => detectHumans(), aiControlInterval);
             }
+            return; // End the function here for the global case
         }
         
-        // Reschedule the next check for this specific room
-        monitor.intervalId = setTimeout(() => detectHumans(roomId), aiControlInterval);
+        // --- Case 2: This is a PER-ROOM monitoring loop ---
+        if (roomId) {
+            const monitor = activeMonitors.get(roomId);
+            if (!monitor || !monitor.isRunning) return; // Stop if cancelled
+            const videoElement = monitor.videoElement;
+            if (!videoElement.srcObject || videoElement.paused) {
+                console.error(`Stream for room ${roomId} is not available. Stopping monitor.`);
+                toggleMonitoring(roomId); // Gracefully shut down this specific monitor
+                return;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            
+            try {
+                const predictions = await model.detect(canvas);
+                const humanDetections = predictions.filter(p => p.class === 'person');
+                const humanDetected = predictions.some(p => p.class === 'person');
+                
+                await fetch('/api/ai-detection-signal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, state: humanDetected })
+                });
+                
+                if (roomId === currentRoomId) {
+                    const currentRoom = allRoomsData.find(r => r.id === roomId);
+                    const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
+                    const statusElement = document.getElementById('monitoring-status');
+                    
+                    if (statusElement) {
+                        if (humanDetected) {
+                            statusElement.textContent = `Human detected in ${roomName}! AI is in control.`;
+                        } else {
+                            statusElement.textContent = `No human detected in ${roomName}. Awaiting...`;
+                        }
+                    }
+                }
+                
+                // Rate-limit email alerts to once every 10 minutes (600,000 ms) per room
+                // Use room-specific lastEmailTime tracking
+                if (!monitor.lastEmailTime) {
+                    monitor.lastEmailTime = null;
+                }
+                
+                if (humanDetected && (monitor.lastEmailTime === null || (Date.now() - monitor.lastEmailTime) > 600000)) {
+                    console.log(`Email time threshold passed for room ${roomId}. Sending alert...`);
+                    
+                    // Create alert canvas with proper dimensions and enhanced visualization
+                    const alertCanvas = document.createElement('canvas');
+                    const videoWidth = videoElement.videoWidth || 640;
+                    const videoHeight = videoElement.videoHeight || 480;
+                    alertCanvas.width = videoWidth;
+                    alertCanvas.height = videoHeight;
+                    const alertCtx = alertCanvas.getContext('2d');
+                    
+                    // Draw the video frame first
+                    alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+                    
+                    // Set up styling for bounding boxes
+                    alertCtx.strokeStyle = '#FF0000';
+                    alertCtx.lineWidth = 3;
+                    alertCtx.font = '16px Arial';
+                    
+                    // Draw bounding boxes around each detected person
+                    humanDetections.forEach((detection, index) => {
+                        const [x, y, width, height] = detection.bbox;
+                        
+                        // Draw the rectangle
+                        alertCtx.strokeRect(x, y, width, height);
+                        
+                        // Add confidence score label
+                        const confidence = Math.round(detection.score * 100);
+                        const label = `Person ${confidence}%`;
+                        
+                        // Draw label background
+                        const textMetrics = alertCtx.measureText(label);
+                        alertCtx.fillStyle = '#FF0000';
+                        alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
+                        
+                        // Draw label text
+                        alertCtx.fillStyle = '#FFFFFF';
+                        alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
+                        
+                        console.log(`Detection ${index + 1} in room ${roomId}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
+                    });
+                    
+                    try {
+                        // Convert to base64 for email - add error handling
+                        const imageData = alertCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size
+                        
+                        // Validate image data before sending
+                        if (imageData && imageData.length > 100) {
+                            const currentRoom = allRoomsData.find(r => r.id === roomId);
+                            const roomName = currentRoom ? currentRoom.name : 'Unknown Room';
+                            
+                            await fetch('/api/send-detection-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    image_data: imageData,
+                                    room_name: roomName,
+                                    room_id: roomId,
+                                    is_global: false
+                                })
+                            });
+                            
+                            monitor.lastEmailTime = Date.now();
+                            console.log(`Detection email sent successfully for room ${roomId}`);
+                        } else {
+                            console.error(`Invalid image data for email in room ${roomId}`);
+                        }
+                    } catch (emailError) {
+                        console.error(`Failed to send detection email for room ${roomId}:`, emailError);
+                    }
+                }
+                
+            } catch (error) {
+                console.error(`Error during detection for room ${roomId}:`, error);
+                
+                // Update status element only if user is viewing this room
+                if (roomId === currentRoomId) {
+                    const statusElement = document.getElementById('monitoring-status');
+                    if (statusElement) {
+                        statusElement.textContent = 'Error during detection.';
+                    }
+                }
+            }
+            
+            // Reschedule the loop for THIS SPECIFIC ROOM
+            if (monitor.isRunning) {
+                monitor.intervalId = setTimeout(() => detectHumans(roomId), aiControlInterval);
+            }
+        }
     };
 
     const toggleGlobalWebcam = async () => {
