@@ -850,9 +850,17 @@
             monitoringStream = stream; // Use the single stream variable for the global session
             monitoringVideoElement.srcObject = stream;
             
-            await new Promise(resolve => monitoringVideoElement.onloadedmetadata = resolve);
+            // *** THE CRITICAL FIX IS HERE ***
+            // Wait for the video's metadata to load before proceeding. This solves the race condition.
+            await new Promise(resolve => {
+                monitoringVideoElement.onloadedmetadata = () => {
+                    resolve();
+                };
+            });
+            
             await monitoringVideoElement.play();
     
+            // Now it's safe to update the state and UI
             isGlobalMonitoringActive = true;
             isMonitoring = true; // Set the general flag
             button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
@@ -866,6 +874,11 @@
         } catch (err) {
             showNotification('Failed to start global monitoring. Check camera permissions.', 'off');
             console.error(err);
+            // Ensure state is reset on failure
+            isGlobalMonitoringActive = false;
+            isMonitoring = false;
+            button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
+            button.classList.remove('monitoring-active-btn');
         }
     };
         
