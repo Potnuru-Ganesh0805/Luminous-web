@@ -857,12 +857,24 @@ def get_analytics():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# In app.py
 @app.route('/api/get-user-settings', methods=['GET'])
 @login_required
 def get_user_settings():
     try:
         user_data = get_user_data()
-        return jsonify(user_data['user_settings']), 200
+        settings = user_data.get('user_settings', {})
+
+        # Also load the main user record to get linked account info
+        users = load_users()
+        user_record = next((u for u in users if u['id'] == current_user.id), None)
+
+        if user_record:
+            settings['google_id'] = user_record.get('google_id')
+            settings['github_id'] = user_record.get('github_id')
+            settings['has_password'] = user_record.get('password_hash') is not None
+        
+        return jsonify(settings), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
