@@ -6,7 +6,6 @@
 <style>
     /*
      * Custom ghost class for Sortable.js
-     * This class is applied to the element being dragged.
      */
     .sortable-ghost {
         background-color: var(--bg-muted-light);
@@ -17,7 +16,7 @@
         opacity: 0.5;
     }
     /*
-     * Custom style for the new switch button
+     * Custom style for the toggle switch
      */
     .custom-toggle-switch {
         position: relative;
@@ -25,13 +24,11 @@
         width: 60px;
         height: 34px;
     }
-    
     .custom-toggle-switch input {
         opacity: 0;
         width: 0;
         height: 0;
     }
-    
     .slider {
         position: absolute;
         cursor: pointer;
@@ -44,7 +41,6 @@
         transition: .4s;
         border-radius: 34px;
     }
-    
     .slider:before {
         position: absolute;
         content: "";
@@ -57,21 +53,19 @@
         transition: .4s;
         border-radius: 50%;
     }
-    
     input:checked + .slider {
         background-color: #2196F3;
     }
-    
     input:focus + .slider {
         box-shadow: 0 0 1px #2196F3;
     }
-    
     input:checked + .slider:before {
         -webkit-transform: translateX(26px);
         -ms-transform: translateX(26px);
         transform: translateX(26px);
     }
 
+    /* Webcam and Monitoring styles (unchanged) */
     #webcam-card-container {
         position: fixed;
         bottom: 20px;
@@ -85,12 +79,10 @@
         overflow: hidden;
         z-index: 40;
     }
-
     .dark #webcam-card-container {
         border: 2px solid var(--primary-accent-dark);
         background-color: var(--bg-card-dark);
     }
-
     #webcam-video {
         width: 100%;
         height: 100%;
@@ -100,9 +92,10 @@
         max-width: 500px;
     }
 
+    /* Animation for active monitoring buttons */
     @keyframes pulse-glow {
         0%, 100% {
-            box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); /* Green glow */
+            box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
         }
         50% {
             box-shadow: 0 0 10px 5px rgba(22, 163, 74, 0);
@@ -110,49 +103,58 @@
     }
     .monitoring-active-btn {
         animation: pulse-glow 2s infinite;
-        border-color: #16a34a; /* Green border */
+        border-color: #16a34a;
     }
-        
+
+    /* MODIFICATION: Style for the new floating Add Room button */
+    #add-room-btn-container {
+        position: fixed;
+        /* Positioned higher to avoid notifications which usually appear at bottom: 1rem */
+        bottom: 2.5rem; /* 40px */
+        right: 2.5rem; /* 40px */
+        z-index: 50;
+    }
 </style>
+
 <div class="container mx-auto">
     <div class="text-center mb-8">
         <h1 class="text-4xl font-extrabold mb-2 text-primary-accent">Relay Control Panel</h1>
-        
         <p class="text-gray-700 dark:text-gray-300">Manage your rooms and appliances.</p>
     </div>
-    <!-- Main View: Rooms -->
+
     <div id="rooms-view" class="transition-transform duration-500">
-        <div class="flex justify-between items-center mb-4">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold text-text-card-foreground">Rooms</h2>
-                <div class="flex space-x-4">
-                    <button id="global-open-webcam-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                        <i class="fas fa-camera mr-2"></i>Open Webcam
-                    </button>
-                    <button id="global-start-monitoring-btn" class="bg-primary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                        <i class="fas fa-eye mr-2"></i>Start Monitoring
-                    </button>
-                    <button id="add-room-btn" class="bg-secondary-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-opacity-80 transition-colors">
-                        <i class="fas fa-plus-circle mr-2"></i>Add Room
-                    </button>
-                </div>
-            </div>
+
+        <div class="text-center mb-4">
+            <h2 class="text-3xl font-bold text-text-card-foreground">Room Center</h2>
         </div>
-        <!-- ADD THIS NEW CONTAINER -->
+
+        <div class="flex justify-center items-center space-x-4 mb-8">
+            <button id="global-open-webcam-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition-colors">
+                <i class="fas fa-camera mr-2"></i>Open Webcam
+            </button>
+            <button id="global-start-monitoring-btn" class="bg-teal-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-teal-600 transition-colors">
+                <i class="fas fa-eye mr-2"></i>Start Monitoring
+            </button>
+        </div>
+
         <div id="global-webcam-container" class="hidden w-full max-w-lg mx-auto mb-4 bg-card border rounded-lg shadow-md">
             <video id="global-webcam-video" autoplay playsinline class="w-full h-auto rounded-lg"></video>
         </div>
+        <div id="global-monitoring-card" class="hidden w-full max-w-lg mx-auto mb-4 p-4 bg-card border rounded-lg shadow-md text-center">
+            <h3 class="text-lg font-semibold mb-2">Global AI Monitoring Active</h3>
+            <p id="global-monitoring-status" class="text-lg text-teal-500 font-bold">Initializing...</p>
+        </div>
+        
         <div id="room-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Room cards will be dynamically inserted here -->
+            </div>
+
+        <div id="add-room-btn-container">
+             <button id="add-room-btn" class="bg-secondary-accent text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-opacity-80 transition-colors flex items-center">
+                <i class="fas fa-plus-circle mr-2"></i>Add Room
+            </button>
         </div>
     </div>
-
-    <div id="global-monitoring-card" class="hidden w-full max-w-lg mx-auto mb-4 p-4 bg-card border rounded-lg shadow-md text-center">
-        <h3 class="text-lg font-semibold mb-2">Global AI Monitoring Active</h3>
-        <p id="global-monitoring-status" class="text-lg text-teal-500 font-bold">Initializing...</p>
-    </div>
     
-    <!-- Appliance View -->
     <div id="appliances-view" class="hidden transition-transform duration-500">
         <div class="flex flex-col items-center mb-4">
             <div class="w-full flex justify-between items-center mb-4">
@@ -174,13 +176,11 @@
                 </button>
             </div>
 
-            <!-- AI Monitoring Card -->
             <div id="ai-monitoring-card" class="hidden bg-card text-card-foreground rounded-xl border p-4 shadow-sm w-full max-w-lg mx-auto mt-4 flex flex-col items-center text-center">
                 <h3 class="text-lg font-semibold mb-2">AI Monitoring Active</h3>
                 <p id="monitoring-status" class="text-lg text-primary-accent font-bold">Awaiting human detection...</p>
             </div>
 
-            <!-- Webcam Container -->
             <div id="webcam-card-container" class="hidden fixed bottom-20 right-20 w-80 h-60 rounded-xl shadow-xl z-50 overflow-hidden bg-card border border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
                     <h4 class="text-sm font-semibold">Live Feed</h4>
@@ -193,12 +193,12 @@
         </div>
 
         <div id="appliance-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Appliance cards will be dynamically inserted here -->
-        </div>
+            </div>
         <button id="add-appliance-btn" class="fixed bottom-8 right-8 bg-secondary-accent text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-opacity-80 transition-colors">
             <i class="fas fa-plus mr-2"></i> Add Appliance
         </button>
     </div>
+
 
     <!-- Room Settings Modal -->
     <div id="settings-room-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center hidden z-50">
