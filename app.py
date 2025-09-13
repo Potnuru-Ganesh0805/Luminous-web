@@ -888,13 +888,27 @@ def change_password():
         
         users = load_users()
         user_found = next((user for user in users if user['id'] == current_user.id), None)
-
-        if user_found and check_password_hash(user_found['password_hash'], old_password):
+        
+        if not user_found:
+            return jsonify({"status": "error", "message": "User not found."}), 404
+        
+        # Check if user has no existing password (OAuth user setting password for first time)
+        if not user_found.get('password_hash'):
+            # No existing password, so set the new password directly
+            user_found['password_hash'] = generate_password_hash(new_password)
+            save_users(users)
+            return jsonify({"status": "success", "message": "Password set successfully."}), 200
+        
+        # User has existing password, verify old password before updating
+        if check_password_hash(user_found['password_hash'], old_password):
             user_found['password_hash'] = generate_password_hash(new_password)
             save_users(users)
             return jsonify({"status": "success", "message": "Password updated successfully."}), 200
         else:
             return jsonify({"status": "error", "message": "Invalid old password."}), 400
+            
+    except KeyError as e:
+        return jsonify({"status": "error", "message": f"Missing required field: {str(e)}"}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
