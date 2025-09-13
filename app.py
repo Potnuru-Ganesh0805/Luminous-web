@@ -162,53 +162,60 @@ def load_data():
 
 # In app.py
 
+# In app.py
 def find_or_create_oauth_user(profile):
-    """Finds an existing user by email or creates a new one, including profile picture."""
+    """
+    Finds a user by email to link accounts, or creates a new user.
+    """
     all_data = load_data()
     users = load_users()
     
-    # 1. Try to find user by email
-    user_id_found = None
+    # 1. Find existing user by email to link accounts
+    existing_user_id = None
     for user_id, user_data in all_data.items():
         if user_data.get("user_settings", {}).get("email") == profile['email']:
-            user_id_found = user_id
+            existing_user_id = user_id
             break
 
-    if user_id_found:
-        # User exists, load and log them in
-        user_info = next((u for u in users if u['id'] == user_id_found), None)
-        if user_info:
-            # OPTIONAL: Update user's name and picture on every login
-            all_data[user_id_found]["user_settings"]["name"] = profile['name']
-            all_data[user_id_found]["user_settings"]["picture"] = profile['picture']
-            save_data(all_data)
-            
-            user = User(user_info['id'], user_info['username'], user_info['password_hash'])
-            login_user(user)
-            return redirect(url_for('home'))
+    if existing_user_id:
+        # User found! Link the new provider to this existing account.
+        user_record = next((u for u in users if u['id'] == existing_user_id), None)
+        if not user_record:
+            return "Error: Data inconsistency found.", 500
+        
+        # Add the provider's ID to the user's record
+        if profile['provider'] == 'google':
+            user_record['google_id'] = profile['provider_id']
+        elif profile['provider'] == 'github':
+            user_record['github_id'] = profile['provider_id']
+        
+        save_users(users) # Save the updated user record
+        
+        # Log the user in
+        user_obj = User(user_record['id'], user_record['username'], user_record['password_hash'])
+        login_user(user_obj)
+        return redirect(url_for('home'))
 
-    # 2. If not found, create a new user (signup)
+    # 2. If no user with that email exists, create a new account
     new_user_id = str(int(users[-1]['id']) + 1) if users else "1"
     
-    # Create entry in users.json (no password)
+    # Create new entry in users.json
     new_user = {
         'id': new_user_id,
-        'username': profile['name'], # Use the name from the profile as the username
-        'password_hash': None  # OAuth users don't have a local password
+        'username': profile['name'],
+        'password_hash': None,
+        'google_id': profile['provider_id'] if profile['provider'] == 'google' else None,
+        'github_id': profile['provider_id'] if profile['provider'] == 'github' else None,
     }
     users.append(new_user)
     save_users(users)
     
-    # Create entry in data.json with the new 'picture' field
-    all_data[new_user_id] = {
-        "user_settings": {
-            "name": profile['name'],
-            "email": profile['email'],
-            "picture": profile['picture'], # <-- Store the picture URL
-            "mobile": "", "channel": "email", "theme": "light", "ai_control_interval": 5
-        },
-        "rooms": [] # Start with an empty list of rooms for a new user
-    }
+    # Create new entry in data.json using your helper function
+    all_data[new_user_id] = create_default_user_data(
+        name=profile['name'],
+        email=profile['email'],
+        picture=profile['picture']
+    )
     save_data(all_data)
     
     # Log the new user in
@@ -1061,9 +1068,11 @@ def authorize_google():
     user_info = google.get('userinfo').json()
     
     profile = {
+        'provider': 'google',
+        'provider_id': user_info.get('sub'),  # 'sub' is the unique ID from Google
         'name': user_info.get('name'),
         'email': user_info.get('email'),
-        'provider': 'google'
+        'picture': user_info.get('picture')
     }
     return find_or_create_oauth_user(profile)
 
@@ -1083,9 +1092,11 @@ def authorize_github():
         return "Error: Could not retrieve a primary email from GitHub.", 400
         
     profile = {
+        'provider': 'github',
+        'provider_id': user_info.get('id'), # 'id' is the unique ID from GitHub
         'name': user_info.get('name') or user_info.get('login'),
         'email': primary_email,
-        'provider': 'github'
+        'picture': user_info.get('avatar_url')
     }
     return find_or_create_oauth_user(profile)
 
