@@ -414,6 +414,7 @@
     
         
     const detectHumans = async (roomId) => { // roomId is now optional
+        
         // --- Case 1: This is a GLOBAL monitoring loop ---
         if (!roomId && isGlobalMonitoringActive) {
             if (!isMonitoring || !model) return; // Stop if turned off
@@ -577,28 +578,34 @@
                 if (humanDetected && (monitor.lastEmailTime === null || (Date.now() - monitor.lastEmailTime) > 600000)) {
                     console.log(`Email time threshold passed for room ${roomId}. Sending alert...`);
                     
-                    // Create alert canvas with proper dimensions and enhanced visualization
+                    // --- MODIFICATION: Define a smaller size for the email alert image ---
+                    const alertWidth = 640; // Smaller width
+                    const alertHeight = 360; // Smaller height
                     const alertCanvas = document.createElement('canvas');
-                    const videoWidth = videoElement.videoWidth || 640;
-                    const videoHeight = videoElement.videoHeight || 480;
-                    alertCanvas.width = videoWidth;
-                    alertCanvas.height = videoHeight;
+                    alertCanvas.width = alertWidth; // Use smaller width
+                    alertCanvas.height = alertHeight; // Use smaller height
                     const alertCtx = alertCanvas.getContext('2d');
                     
-                    // Draw the video frame first
-                    alertCtx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
-                    
-                    // Set up styling for bounding boxes
-                    alertCtx.strokeStyle = '#FF0000';
-                    alertCtx.lineWidth = 3;
-                    alertCtx.font = '16px Arial';
+                    // Draw the video frame, scaling it down to the smaller canvas size
+                    alertCtx.drawImage(videoElement, 0, 0, alertWidth, alertHeight);
                     
                     // Draw bounding boxes around each detected person
+                    alertCtx.strokeStyle = 'red';
+                    alertCtx.lineWidth = 2; // Thinner line for smaller image
+                    alertCtx.font = '14px Arial'; // Smaller font for smaller image
+                    
                     humanDetections.forEach((detection, index) => {
+                        // Scale the bounding box coordinates to match the new smaller image
+                        const scaleX = alertWidth / videoElement.videoWidth;
+                        const scaleY = alertHeight / videoElement.videoHeight;
                         const [x, y, width, height] = detection.bbox;
+                        const scaledX = x * scaleX;
+                        const scaledY = y * scaleY;
+                        const scaledWidth = width * scaleX;
+                        const scaledHeight = height * scaleY;
                         
                         // Draw the rectangle
-                        alertCtx.strokeRect(x, y, width, height);
+                        alertCtx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
                         
                         // Add confidence score label
                         const confidence = Math.round(detection.score * 100);
@@ -606,19 +613,20 @@
                         
                         // Draw label background
                         const textMetrics = alertCtx.measureText(label);
-                        alertCtx.fillStyle = '#FF0000';
-                        alertCtx.fillRect(x, Math.max(y - 20, 0), textMetrics.width + 8, 20);
+                        alertCtx.fillStyle = 'red';
+                        alertCtx.fillRect(scaledX, Math.max(scaledY - 18, 0), textMetrics.width + 6, 18);
                         
                         // Draw label text
-                        alertCtx.fillStyle = '#FFFFFF';
-                        alertCtx.fillText(label, x + 4, Math.max(y - 4, 16));
+                        alertCtx.fillStyle = 'white';
+                        alertCtx.fillText(label, scaledX + 3, Math.max(scaledY - 3, 15));
                         
-                        console.log(`Detection ${index + 1} in room ${roomId}: bbox=[${x}, ${y}, ${width}, ${height}], confidence=${confidence}%`);
+                        console.log(`Detection ${index + 1} in room ${roomId}: bbox=[${scaledX}, ${scaledY}, ${scaledWidth}, ${scaledHeight}], confidence=${confidence}%`);
                     });
                     
                     try {
-                        // Convert to base64 for email - add error handling
-                        const imageData = alertCanvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size
+                        // --- MODIFICATION: Use JPEG format for much smaller file size ---
+                        // A quality of 0.8 is a good balance.
+                        const imageData = alertCanvas.toDataURL('image/jpeg', 0.8);
                         
                         // Validate image data before sending
                         if (imageData && imageData.length > 100) {
