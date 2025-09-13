@@ -379,6 +379,7 @@
     const activeMonitors = new Map(); // Manages all independent monitoring sessions
     let aiControlInterval = 5000;
     let lastEmailTime = null;
+    let isGlobalMonitoringActive = false;
     // ... keep other variables like webcamStream, allRoomsData, etc.
 
     const loadModel = async () => {
