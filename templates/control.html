@@ -732,7 +732,11 @@
             showNotification(`AI monitoring stopped for ${room.name}.`, 'on');
             
             // Update backend and UI
-            await fetch('/api/update-room-settings', { /* ... body: { ai_control: false } ... */ });
+            await fetch('/api/update-room-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_id: roomId, ai_control: false })
+            });
             renderAppliances(room.appliances, room.name);
             return;
         }
