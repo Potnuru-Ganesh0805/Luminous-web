@@ -4,17 +4,20 @@ import time
 import csv
 import threading
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from authlib.integrations.flask_client import OAuth
 import paho.mqtt.client as mqtt
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
 import requests
 import base64
 
+
 # --- Application Setup ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-super-secret-key'  # Change this in production
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'a-fallback-secret-key-for-development')
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'signin'
@@ -44,6 +47,37 @@ MQTT_TOPIC_COMMAND = "lumino_us/commands"
 MQTT_TOPIC_STATUS = "lumino_us/status"
 
 mqtt_client = None
+
+app.secret_key = os.urandom(24)
+
+# OAuth Configuration
+oauth = OAuth(app)
+
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    access_token_params=None,
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    authorize_params=None,
+    api_base_url='https://www.googleapis.com/oauth2/v1/',
+    userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',  # This is the endpoint to get user info
+    client_kwargs={'scope': 'openid email profile'},
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
+)
+
+github = oauth.register(
+    name='github',
+    client_id=os.getenv('GITHUB_CLIENT_ID'),
+    client_secret=os.getenv('GITHUB_CLIENT_SECRET'),
+    access_token_url='https://github.com/login/oauth/access_token',
+    access_token_params=None,
+    authorize_url='https://github.com/login/oauth/authorize',
+    authorize_params=None,
+    api_base_url='https://api.github.com/',
+    client_kwargs={'scope': 'user:email'}
+)
 
 def connect_mqtt():
     """Connects to the MQTT broker."""
