@@ -668,14 +668,14 @@
     const toggleGlobalMonitoring = async () => {
         const button = document.getElementById('global-start-monitoring-btn');
         const card = document.getElementById('global-monitoring-card');
-        
+
         if (isGlobalMonitoringActive) {
             isGlobalMonitoringActive = false;
             isMonitoring = false;
             if (monitoringIntervalId) clearTimeout(monitoringIntervalId);
             if (monitoringStream) monitoringStream.getTracks().forEach(track => track.stop());
             monitoringStream = null;
-            
+
             card.classList.add('hidden'); // Hide the card when stopping
             button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
             showNotification('Global AI monitoring stopped.', 'on');
@@ -684,13 +684,13 @@
              try {
                 if (!model) await loadModel();
                 if (!model) return;
-                
+
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 monitoringStream = stream;
                 monitoringVideoElement.srcObject = stream;
                 monitoringVideoElement.style.display = 'none';
                 document.body.appendChild(monitoringVideoElement);
-                
+
                 // *** THE KEY FIX IS HERE ***
                 // Wait for the video to be ready before proceeding
                 await new Promise((resolve) => {
@@ -699,14 +699,14 @@
                     };
                 });
                 await monitoringVideoElement.play();
-                
+
                 isGlobalMonitoringActive = true;
                 isMonitoring = true;
-                
+
                 card.classList.remove('hidden'); // Show the card when starting
                 button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
                 showNotification('Global AI monitoring started.', 'on');
-                
+
                 detectHumans(); // Now it's safe to start the loop
                 fetchRoomsAndAppliances();
              } catch (err) {
