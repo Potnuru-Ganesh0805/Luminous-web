@@ -112,20 +112,22 @@
             document.getElementById('profile-mobile').value = settings.mobile || '';
             document.getElementById('ai-control-interval').value = settings.ai_control_interval || 5;
 
-            // Populate and disable Email field
+            // --- MODIFICATION: Logic for Linked Accounts ---
             const emailInput = document.getElementById('profile-email');
-            emailInput.value = settings.email || '';
-            if (settings.email) {
-                emailInput.disabled = true;
+            const githubInput = document.getElementById('profile-github');
+
+            // Display Google Email if linked, otherwise show N/A
+            if (settings.google_id) {
+                emailInput.value = settings.email;
+            } else {
+                emailInput.value = 'N/A - Link your Google account to see email';
             }
 
-            // Populate and show/hide GitHub field
-            const githubContainer = document.getElementById('github-profile-container');
-            if (settings.github_profile_url) {
-                document.getElementById('profile-github').value = settings.github_profile_url;
-                githubContainer.classList.remove('hidden');
+            // Display GitHub Profile if linked, otherwise show N/A
+            if (settings.github_id) {
+                githubInput.value = settings.github_profile_url || 'Profile URL not available';
             } else {
-                githubContainer.classList.add('hidden');
+                githubInput.value = 'N/A - Link your GitHub account to see profile';
             }
             
             // Show the correct password form based on user type
