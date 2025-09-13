@@ -370,7 +370,6 @@
     const globalMonitoringStatus = document.getElementById('monitoring-status-global');
 
     let modelLoaded = false;
-    let lastEmailTime = null;
 
     let pendingGlobalAction = null; // 'webcam' or 'monitoring'
 
@@ -379,7 +378,6 @@
     let currentRoomId = null;
     const activeMonitors = new Map(); // Manages all independent monitoring sessions
     let aiControlInterval = 5000;
-    let model = null;
     let lastEmailTime = null;
     // ... keep other variables like webcamStream, allRoomsData, etc.
 
