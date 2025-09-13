@@ -666,55 +666,73 @@
     };
     
     const toggleGlobalMonitoring = async () => {
-        const button = document.getElementById('global-start-monitoring-btn');
-        const card = document.getElementById('global-monitoring-card');
+    const button = document.getElementById('global-start-monitoring-btn');
+    
+    // --- LOGIC TO STOP GLOBAL MONITORING ---
+    if (isGlobalMonitoringActive) {
+        isGlobalMonitoringActive = false;
+        isMonitoring = false; // The general flag
+        if (monitoringIntervalId) clearTimeout(monitoringIntervalId);
+        if (monitoringStream) monitoringStream.getTracks().forEach(track => track.stop());
+        monitoringStream = null;
+        
+        button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
+        document.getElementById('global-monitoring-card').classList.add('hidden');
+        showNotification('Global AI monitoring stopped.', 'on');
+        fetchRoomsAndAppliances(); // Re-render rooms to re-enable per-room buttons
+        return;
+    }
 
-        if (isGlobalMonitoringActive) {
-            isGlobalMonitoringActive = false;
-            isMonitoring = false;
-            if (monitoringIntervalId) clearTimeout(monitoringIntervalId);
-            if (monitoringStream) monitoringStream.getTracks().forEach(track => track.stop());
-            monitoringStream = null;
-
-            card.classList.add('hidden'); // Hide the card when stopping
-            button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
-            showNotification('Global AI monitoring stopped.', 'on');
-            fetchRoomsAndAppliances();
-        } else {
-             try {
-                if (!model) await loadModel();
-                if (!model) return;
-
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                monitoringStream = stream;
-                monitoringVideoElement.srcObject = stream;
-                monitoringVideoElement.style.display = 'none';
-                document.body.appendChild(monitoringVideoElement);
-
-                // *** THE KEY FIX IS HERE ***
-                // Wait for the video to be ready before proceeding
-                await new Promise((resolve) => {
-                    monitoringVideoElement.onloadedmetadata = () => {
-                        resolve();
-                    };
-                });
-                await monitoringVideoElement.play();
-
-                isGlobalMonitoringActive = true;
-                isMonitoring = true;
-
-                card.classList.remove('hidden'); // Show the card when starting
-                button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
-                showNotification('Global AI monitoring started.', 'on');
-
-                detectHumans(); // Now it's safe to start the loop
-                fetchRoomsAndAppliances();
-             } catch (err) {
-                 showNotification('Failed to start global monitoring. Check camera permissions.', 'off');
-                 console.error(err);
-             }
+    // --- LOGIC TO START GLOBAL MONITORING ---
+    try {
+        // *** THE KEY FIX IS HERE: Shut down all active per-room monitors first ***
+        if (activeMonitors.size > 0) {
+            console.log(`Overriding ${activeMonitors.size} active room monitors...`);
+            showNotification('Stopping all per-room monitors to start global session.', 'on');
+            
+            for (const [roomId, monitor] of activeMonitors.entries()) {
+                if (monitor.isRunning) {
+                    monitor.isRunning = false;
+                    if (monitor.intervalId) clearTimeout(monitor.intervalId);
+                    if (monitor.stream) monitor.stream.getTracks().forEach(track => track.stop());
+                    if (monitor.videoElement) monitor.videoElement.remove();
+                    
+                    // Silently update backend that AI control is off for this room
+                    await fetch('/api/update-room-settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_id: roomId, ai_control: false })
+                    });
+                }
+            }
+            activeMonitors.clear(); // Clear the map completely
         }
-    };
+        
+        // Now, proceed with starting the global monitor
+        if (!model) await loadModel();
+        if (!model) return;
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        monitoringStream = stream; // Use the single stream variable for the global session
+        monitoringVideoElement.srcObject = stream;
+        
+        await new Promise(resolve => monitoringVideoElement.onloadedmetadata = resolve);
+        await monitoringVideoElement.play();
+
+        isGlobalMonitoringActive = true;
+        isMonitoring = true; // Set the general flag
+        button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
+        document.getElementById('global-monitoring-card').classList.remove('hidden');
+        showNotification('Global AI monitoring started.', 'on');
+        
+        detectHumans(); // Start the detection loop (it will now know it's in global mode)
+        fetchRoomsAndAppliances(); // Re-render rooms to disable per-room buttons
+
+    } catch (err) {
+        showNotification('Failed to start global monitoring. Check camera permissions.', 'off');
+        console.error(err);
+    }
+};
         
     
     const toggleMonitoring = async (roomId) => {
