@@ -412,20 +412,6 @@
     };
 
     
-    // Add this new function
-    const updateMasterAIStatus = () => {
-        const statusElement = document.getElementById('master-ai-status');
-        // Check if either global monitoring is on OR any per-room monitor is on
-        if (isGlobalMonitoringActive || activeMonitors.size > 0) {
-            statusElement.textContent = 'AI Enabled';
-            statusElement.classList.add('text-green-500');
-            statusElement.classList.remove('text-gray-500', 'dark:text-gray-400');
-        } else {
-            statusElement.textContent = 'AI Disabled';
-            statusElement.classList.remove('text-green-500');
-            statusElement.classList.add('text-gray-500', 'dark:text-gray-400');
-        }
-    };
         
     const detectHumans = async (roomId) => { // roomId is now optional
         // --- Case 1: This is a GLOBAL monitoring loop ---
