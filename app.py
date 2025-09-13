@@ -128,6 +128,30 @@ def save_users(users):
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=4)
 
+# In app.py, add this new function
+
+def create_default_user_data(name, email, picture=None):
+    """Creates the default data structure for a new user."""
+    return {
+        "user_settings": {
+            "name": name,
+            "email": email,
+            "picture": picture,
+            "mobile": "", "channel": "email", "theme": "light", "ai_control_interval": 5
+        },
+        "rooms": [{
+            "id": "1",
+            "name": "Hall",
+            "ai_control": False,
+            "appliances": [
+                {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None, "relay_number": 1},
+                {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None, "relay_number": 2},
+                {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None, "relay_number": 3},
+                {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None, "relay_number": 4}
+            ]
+        }]
+    }
+
 # --- Data Persistence Functions ---
 def load_data():
     if not os.path.exists(DATA_FILE):
@@ -135,6 +159,62 @@ def load_data():
             json.dump({}, f)
     with open(DATA_FILE, 'r') as f:
         return json.load(f)
+
+# In app.py
+
+def find_or_create_oauth_user(profile):
+    """Finds an existing user by email or creates a new one, including profile picture."""
+    all_data = load_data()
+    users = load_users()
+    
+    # 1. Try to find user by email
+    user_id_found = None
+    for user_id, user_data in all_data.items():
+        if user_data.get("user_settings", {}).get("email") == profile['email']:
+            user_id_found = user_id
+            break
+
+    if user_id_found:
+        # User exists, load and log them in
+        user_info = next((u for u in users if u['id'] == user_id_found), None)
+        if user_info:
+            # OPTIONAL: Update user's name and picture on every login
+            all_data[user_id_found]["user_settings"]["name"] = profile['name']
+            all_data[user_id_found]["user_settings"]["picture"] = profile['picture']
+            save_data(all_data)
+            
+            user = User(user_info['id'], user_info['username'], user_info['password_hash'])
+            login_user(user)
+            return redirect(url_for('home'))
+
+    # 2. If not found, create a new user (signup)
+    new_user_id = str(int(users[-1]['id']) + 1) if users else "1"
+    
+    # Create entry in users.json (no password)
+    new_user = {
+        'id': new_user_id,
+        'username': profile['name'], # Use the name from the profile as the username
+        'password_hash': None  # OAuth users don't have a local password
+    }
+    users.append(new_user)
+    save_users(users)
+    
+    # Create entry in data.json with the new 'picture' field
+    all_data[new_user_id] = {
+        "user_settings": {
+            "name": profile['name'],
+            "email": profile['email'],
+            "picture": profile['picture'], # <-- Store the picture URL
+            "mobile": "", "channel": "email", "theme": "light", "ai_control_interval": 5
+        },
+        "rooms": [] # Start with an empty list of rooms for a new user
+    }
+    save_data(all_data)
+    
+    # Log the new user in
+    user_obj = User(new_user['id'], new_user['username'], new_user['password_hash'])
+    login_user(user_obj)
+    return redirect(url_for('home'))
 
 def save_data(data):
     with open(DATA_FILE, 'w') as f:
@@ -224,24 +304,29 @@ def signup():
         save_users(users)
         
         # Create a new entry for the user in data.json
+        # data = load_data()
+        # data[new_user_id] = {
+        #     "user_settings": {
+        #         "name": "hi",
+        #         "email": "", "mobile": "", "channel": "email", "theme": "light", "ai_control_interval": 5
+        #     },
+        #     "rooms": [{
+        #         "id": "1",
+        #         "name": "Hall",
+        #         "ai_control": False,
+        #         "appliances": [
+        #             {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None, "relay_number": 1},
+        #             {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None, "relay_number": 2},
+        #             {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None, "relay_number": 3},
+        #             {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None, "relay_number": 4}
+        #         ]
+        #     }]
+        # }
+        # save_data(data)
+
         data = load_data()
-        data[new_user_id] = {
-            "user_settings": {
-                "name": "hi",
-                "email": "", "mobile": "", "channel": "email", "theme": "light", "ai_control_interval": 5
-            },
-            "rooms": [{
-                "id": "1",
-                "name": "Hall",
-                "ai_control": False,
-                "appliances": [
-                    {"id": "1", "name": "Main Light", "state": False, "locked": False, "timer": None, "relay_number": 1},
-                    {"id": "2", "name": "Fan", "state": False, "locked": False, "timer": None, "relay_number": 2},
-                    {"id": "3", "name": "Night Lamp", "state": False, "locked": False, "timer": None, "relay_number": 3},
-                    {"id": "4", "name": "A/C", "state": False, "locked": False, "timer": None, "relay_number": 4}
-                ]
-            }]
-        }
+        # Standard signup form doesn't have email, so we pass an empty string
+        data[new_user_id] = create_default_user_data(name=username, email="")
         save_data(data)
         
         user_obj = User(default_user['id'], default_user['username'], default_user['password_hash'])
@@ -961,6 +1046,48 @@ def send_detection_email():
     except Exception as e:
         print(f"Error in send_detection_email endpoint: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# --- ADD THIS SECTION: OAuth Login Routes ---
+
+@app.route('/login/google')
+def login_google():
+    redirect_uri = url_for('authorize_google', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/google/callback')
+def authorize_google():
+    token = google.authorize_access_token()
+    user_info = google.get('userinfo').json()
+    
+    profile = {
+        'name': user_info.get('name'),
+        'email': user_info.get('email'),
+        'provider': 'google'
+    }
+    return find_or_create_oauth_user(profile)
+
+@app.route('/login/github')
+def login_github():
+    redirect_uri = url_for('authorize_github', _external=True)
+    return github.authorize_redirect(redirect_uri)
+
+@app.route('/github/callback')
+def authorize_github():
+    token = github.authorize_access_token()
+    user_info = github.get('user').json()
+    user_emails = github.get('user/emails').json()
+    primary_email = next((e['email'] for e in user_emails if e['primary']), None)
+    
+    if not primary_email:
+        return "Error: Could not retrieve a primary email from GitHub.", 400
+        
+    profile = {
+        'name': user_info.get('name') or user_info.get('login'),
+        'email': primary_email,
+        'provider': 'github'
+    }
+    return find_or_create_oauth_user(profile)
 
 if __name__ == '__main__':
     generate_analytics_data()
