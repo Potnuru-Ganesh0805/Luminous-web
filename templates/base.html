@@ -81,22 +81,96 @@
     <!-- Shared JavaScript -->
     <script src="{{ url_for('static', filename='themes.js') }}"></script>
     <script>
-        const showNotification = (message, type) => {
-            const notificationArea = document.getElementById('notification-area');
+        /**
+         * Displays a stackable notification message in the top-right corner.
+         * @param {string} message The message to display.
+         * @param {string} type The type of notification ('on' for success, 'off' for error).
+         */
+        function showNotification(message, type) {
+            // --- 1. Find or Create the Notification Container ---
+            let container = document.getElementById('notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notification-container';
+                // Style the container to hold the stack of notifications
+                container.style.position = 'fixed';
+                container.style.top = '1.25rem';
+                container.style.right = '1.25rem';
+                container.style.zIndex = '1000';
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.gap = '0.75rem'; // Space between notifications
+                document.body.appendChild(container);
+            }
+        
+            // --- 2. Create the Notification Element ---
             const notification = document.createElement('div');
-            notification.className = `p-4 rounded-lg shadow-md text-white transition-opacity duration-300 ease-in-out mb-2 transform translate-y-full opacity-0 ${type === 'on' ? 'bg-green-600' : 'bg-red-600'}`;
+            notification.style.position = 'relative'; // For positioning the close button
+            notification.style.transition = 'opacity 300ms ease, transform 300ms ease';
+            
+            // Animation starting state (off-screen to the right)
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+        
             notification.textContent = message;
-            notificationArea.appendChild(notification);
-            
+            notification.classList.add('px-4', 'py-3', 'pr-8', 'rounded-md', 'shadow-lg', 'font-semibold');
+        
+            if (type === 'on') {
+                notification.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+            } else {
+                notification.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+            }
+        
+            // --- 3. Create the Close Button ---
+            const closeButton = document.createElement('button');
+            closeButton.innerHTML = '&times;'; // 'X' symbol
+            closeButton.style.position = 'absolute';
+            closeButton.style.top = '0.25rem';
+            closeButton.style.right = '0.5rem';
+            closeButton.style.background = 'transparent';
+            closeButton.style.border = 'none';
+            closeButton.style.fontSize = '1.5rem';
+            closeButton.style.lineHeight = '1';
+            closeButton.style.cursor = 'pointer';
+            closeButton.style.color = 'inherit'; // Inherit color from parent
+            closeButton.style.opacity = '0.7';
+        
+            notification.appendChild(closeButton);
+        
+            // --- 4. Define Dismissal Logic ---
+            const dismiss = () => {
+                // Trigger fade-out animation
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                
+                // Remove the element after the animation completes
+                setTimeout(() => {
+                    notification.remove();
+                    // Optional: if the container is empty, remove it
+                    if (container.children.length === 0) {
+                        container.remove();
+                    }
+                }, 300); // Must match transition duration
+            };
+        
+            // Add click event to the close button
+            closeButton.onclick = () => {
+                clearTimeout(timeoutId); // Cancel the auto-dismiss timer
+                dismiss();
+            };
+        
+            // Auto-dismiss the notification after 5 seconds
+            const timeoutId = setTimeout(dismiss, 5000);
+        
+            // --- 5. Add to Page and Animate In ---
+            container.prepend(notification); // Use prepend to add to the top of the stack
+        
+            // Trigger fade-in animation
             setTimeout(() => {
-                notification.classList.remove('translate-y-full', 'opacity-0');
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateX(0)';
             }, 10);
-            
-            setTimeout(() => {
-                notification.classList.add('opacity-0');
-                setTimeout(() => notification.remove(), 500);
-            }, 5000);
-        };
+        }
 
         const fetchUserName = async () => {
             try {
