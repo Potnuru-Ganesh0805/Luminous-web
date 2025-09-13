@@ -805,7 +805,6 @@
             button.classList.remove('monitoring-active-btn');
             document.getElementById('global-monitoring-card').classList.add('hidden');
             showNotification('Global AI monitoring stopped.', 'on');
-            updateMasterAIStatus();
             fetchRoomsAndAppliances(); // Re-render rooms to re-enable per-room buttons
             return;
         }
@@ -852,7 +851,6 @@
             button.classList.add('monitoring-active-btn');
             document.getElementById('global-monitoring-card').classList.remove('hidden');
             showNotification('Global AI monitoring started.', 'on');
-            updateMasterAIStatus();
             
             detectHumans(); // Start the detection loop (it will now know it's in global mode)
             fetchRoomsAndAppliances(); // Re-render rooms to disable per-room buttons
@@ -886,7 +884,6 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ room_id: roomId, ai_control: false })
             });
-            updateMasterAIStatus();
             renderAppliances(room.appliances, room.name);
             return;
         }
@@ -925,7 +922,6 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ room_id: roomId, ai_control: true })
             });
-            updateMasterAIStatus();
             renderAppliances(room.appliances, room.name);
             
             // Start the independent detection loop for this room
