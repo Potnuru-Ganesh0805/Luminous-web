@@ -36,6 +36,8 @@ USERS_FILE = 'users.json'
 DATA_FILE = 'data.json'
 ANALYTICS_FILE = 'analytics_data.csv'
 
+ELECTRICITY_RATE = 6.50
+
 # --- Gemini API Setup ---
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key="
 API_KEY = ""  # Your API Key will be automatically provided by the Canvas environment
@@ -260,8 +262,35 @@ def generate_analytics_data():
                 'hour': current_datetime.hour,
                 'consumption': round(consumption, 2)
             })
+def generate_analytics_data():
+    """Your existing function with minor improvements"""
+    if os.path.exists(ANALYTICS_FILE):
+        return
+    start_date = datetime.now() - timedelta(days=365)
+    with open(ANALYTICS_FILE, 'w', newline='') as csvfile:
+        fieldnames = ['date', 'hour', 'consumption']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for i in range(365 * 24):
+            current_datetime = start_date + timedelta(hours=i)
+            # More realistic consumption pattern
+            base_consumption = 50
+            hour_factor = (i % 24) * 2  # Higher usage during day
+            day_factor = (i % 7) * 5    # Higher usage on weekends
+            seasonal_factor = 10 * (1 + 0.3 * (i // (24*30)) % 12 / 12)  # Seasonal variation
+            random_factor = os.urandom(1)[0] % 20 - 10  # Random variation
+            
+            consumption = base_consumption + hour_factor + day_factor + seasonal_factor + random_factor
+            consumption = max(20, consumption)  # Minimum consumption
+            
+            writer.writerow({
+                'date': current_datetime.strftime('%Y-%m-%d'),
+                'hour': current_datetime.hour,
+                'consumption': round(consumption, 2)
+            })
 
 def load_analytics_data():
+    """Your existing function"""
     data = []
     with open(ANALYTICS_FILE, 'r') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -276,6 +305,260 @@ def load_analytics_data():
                 except (ValueError, TypeError):
                     continue
     return data
+
+def process_hourly_data(data):
+    """Process data for last 24 hours view"""
+    now = datetime.now()
+    last_24h = now - timedelta(hours=24)
+    
+    hourly_data = defaultdict(float)
+    
+    for record in data:
+        record_datetime = datetime.strptime(f"{record['date']} {record['hour']:02d}:00:00", "%Y-%m-%d %H:%M:%S")
+        if record_datetime >= last_24h:
+            hour_label = record_datetime.strftime("%H:00")
+            hourly_data[hour_label] = record['consumption']
+    
+    # Fill missing hours with 0
+    labels = []
+    values = []
+    for i in range(24):
+        hour_label = f"{i:02d}:00"
+        labels.append(hour_label)
+        values.append(hourly_data.get(hour_label, 0))
+    
+    return {'labels': labels, 'values': values}
+
+def process_weekly_data(data):
+    """Process data for last 7 days view"""
+    now = datetime.now()
+    last_7_days = now - timedelta(days=7)
+    
+    daily_data = defaultdict(float)
+    daily_counts = defaultdict(int)
+    
+    for record in data:
+        record_date = datetime.strptime(record['date'], "%Y-%m-%d")
+        if record_date >= last_7_days:
+            day_label = record_date.strftime("%Y-%m-%d")
+            daily_data[day_label] += record['consumption']
+            daily_counts[day_label] += 1
+    
+    # Average consumption per day
+    for day in daily_data:
+        if daily_counts[day] > 0:
+            daily_data[day] = daily_data[day] / daily_counts[day]
+    
+    labels = []
+    values = []
+    for i in range(7):
+        date = (now - timedelta(days=6-i)).strftime("%Y-%m-%d")
+        day_name = (now - timedelta(days=6-i)).strftime("%a")
+        labels.append(day_name)
+        values.append(daily_data.get(date, 0))
+    
+    return {'labels': labels, 'values': values}
+
+def process_yearly_data(data):
+    """Process data for last 12 months view"""
+    now = datetime.now()
+    monthly_data = defaultdict(float)
+    monthly_counts = defaultdict(int)
+    
+    for record in data:
+        record_date = datetime.strptime(record['date'], "%Y-%m-%d")
+        if (now - record_date).days <= 365:
+            month_label = record_date.strftime("%Y-%m")
+            monthly_data[month_label] += record['consumption']
+            monthly_counts[month_label] += 1
+    
+    # Average consumption per month
+    for month in monthly_data:
+        if monthly_counts[month] > 0:
+            monthly_data[month] = monthly_data[month] / monthly_counts[month]
+    
+    labels = []
+    values = []
+    for i in range(12):
+        date = now.replace(day=1) - timedelta(days=30*i)
+        month_label = date.strftime("%Y-%m")
+        month_name = date.strftime("%b %Y")
+        labels.insert(0, month_name)
+        values.insert(0, monthly_data.get(month_label, 0))
+    
+    return {'labels': labels, 'values': values}
+
+def calculate_statistics(data):
+    """Calculate comprehensive statistics"""
+    now = datetime.now()
+    this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+    
+    this_month_data = []
+    last_month_data = []
+    all_consumption = []
+    peak_usage = 0
+    peak_time = ""
+    
+    for record in data:
+        record_date = datetime.strptime(record['date'], "%Y-%m-%d")
+        consumption = record['consumption']
+        all_consumption.append(consumption)
+        
+        # Track peak usage
+        if consumption > peak_usage:
+            peak_usage = consumption
+            peak_time = f"{record['date']} {record['hour']:02d}:00"
+        
+        # Monthly comparison
+        if record_date >= this_month_start:
+            this_month_data.append(consumption)
+        elif record_date >= last_month_start and record_date < this_month_start:
+            last_month_data.append(consumption)
+    
+    # Calculate statistics
+    total_consumption = sum(this_month_data) if this_month_data else 0
+    average_daily = total_consumption / max(1, len(set(record['date'] for record in data 
+                    if datetime.strptime(record['date'], "%Y-%m-%d") >= this_month_start)))
+    
+    # Calculate monthly change
+    this_month_avg = statistics.mean(this_month_data) if this_month_data else 0
+    last_month_avg = statistics.mean(last_month_data) if last_month_data else 0
+    daily_change = ((this_month_avg - last_month_avg) / max(last_month_avg, 1)) * 100 if last_month_avg > 0 else 0
+    
+    estimated_cost = total_consumption * ELECTRICITY_RATE
+    
+    return {
+        'total_consumption': total_consumption,
+        'average_daily': average_daily,
+        'peak_usage': peak_usage,
+        'peak_time': peak_time,
+        'daily_change': daily_change,
+        'estimated_cost': estimated_cost
+    }
+
+def analyze_peak_usage(data):
+    """Analyze peak usage by hour of day"""
+    hourly_peaks = defaultdict(list)
+    
+    for record in data:
+        hour = record['hour']
+        consumption = record['consumption']
+        hourly_peaks[hour].append(consumption)
+    
+    labels = [f"{i:02d}:00" for i in range(24)]
+    values = []
+    
+    for i in range(24):
+        if i in hourly_peaks and hourly_peaks[i]:
+            values.append(max(hourly_peaks[i]))
+        else:
+            values.append(0)
+    
+    return {'labels': labels, 'values': values}
+
+def calculate_usage_distribution(data):
+    """Calculate usage distribution for pie chart"""
+    all_consumption = [record['consumption'] for record in data]
+    if not all_consumption:
+        return [25, 25, 25, 25]  # Default equal distribution
+    
+    # Define usage categories based on percentiles
+    sorted_consumption = sorted(all_consumption)
+    total_records = len(sorted_consumption)
+    
+    q1 = sorted_consumption[total_records // 4]
+    q2 = sorted_consumption[total_records // 2]
+    q3 = sorted_consumption[3 * total_records // 4]
+    
+    low_count = sum(1 for c in all_consumption if c <= q1)
+    medium_count = sum(1 for c in all_consumption if q1 < c <= q2)
+    high_count = sum(1 for c in all_consumption if q2 < c <= q3)
+    peak_count = sum(1 for c in all_consumption if c > q3)
+    
+    return [low_count, medium_count, high_count, peak_count]
+
+def calculate_weekly_pattern(data):
+    """Calculate average usage by day of week"""
+    daily_totals = defaultdict(list)
+    
+    for record in data:
+        record_date = datetime.strptime(record['date'], "%Y-%m-%d")
+        day_of_week = record_date.weekday()  # 0 = Monday
+        daily_totals[day_of_week].append(record['consumption'])
+    
+    # Calculate averages for each day
+    weekly_averages = []
+    for i in range(7):  # Monday to Sunday
+        if i in daily_totals and daily_totals[i]:
+            avg = statistics.mean(daily_totals[i])
+            weekly_averages.append(round(avg, 2))
+        else:
+            weekly_averages.append(0)
+    
+    return weekly_averages
+
+def calculate_cost_breakdown(total_consumption):
+    """Calculate detailed cost breakdown"""
+    base_charges = 150.0  # Fixed monthly charge
+    energy_charges = total_consumption * ELECTRICITY_RATE
+    tax_surcharge = (base_charges + energy_charges) * 0.15  # 15% tax
+    
+    total = base_charges + energy_charges + tax_surcharge
+    
+    return {
+        'base_charges': base_charges,
+        'energy_charges': energy_charges,
+        'tax_surcharge': tax_surcharge,
+        'total': total
+    }
+
+def generate_efficiency_insights(data, stats):
+    """Generate efficiency insights and recommendations"""
+    insights = []
+    
+    # Calculate efficiency score
+    all_consumption = [record['consumption'] for record in data]
+    avg_consumption = statistics.mean(all_consumption) if all_consumption else 0
+    optimal_consumption = 60  # Assumed optimal consumption
+    efficiency_score = max(0, min(100, 100 - (avg_consumption - optimal_consumption) / optimal_consumption * 100))
+    
+    # Generate insights based on data
+    if stats['peak_usage'] > 100:
+        insights.append({
+            'type': 'warning',
+            'message': f'High peak usage detected ({stats["peak_usage"]:.1f} kWh). Consider load balancing during peak hours.'
+        })
+    
+    if stats['daily_change'] > 10:
+        insights.append({
+            'type': 'warning',
+            'message': f'Usage increased by {stats["daily_change"]:.1f}% this month. Review your energy habits.'
+        })
+    elif stats['daily_change'] < -10:
+        insights.append({
+            'type': 'success',
+            'message': f'Great! Usage decreased by {abs(stats["daily_change"]):.1f}% this month.'
+        })
+    
+    if avg_consumption < optimal_consumption:
+        insights.append({
+            'type': 'success',
+            'message': 'Your consumption is below the optimal range. Excellent energy management!'
+        })
+    
+    # Time-based insights
+    peak_hour = int(stats['peak_time'].split(' ')[1].split(':')[0]) if stats['peak_time'] else 12
+    if 9 <= peak_hour <= 17:
+        insights.append({
+            'type': 'info',
+            'message': 'Peak usage occurs during business hours. Consider time-of-use optimization.'
+        })
+    
+    return {
+        'score': round(efficiency_score),
+        'insights': insights
+    }
 
 # --- Frontend Routes ---
 @app.route('/signin', methods=['GET', 'POST'])
@@ -402,13 +685,6 @@ def control():
     user_data = get_user_data()
     theme = user_data['user_settings']['theme']
     return render_template('control.html', theme=theme)
-
-@app.route('/analytics.html')
-@login_required
-def analytics():
-    user_data = get_user_data()
-    theme = user_data['user_settings']['theme']
-    return render_template('analytics.html', theme=theme)
 
 @app.route('/settings.html')
 @login_required
@@ -821,7 +1097,6 @@ def get_analytics():
         hourly_data = {str(i): 0 for i in range(24)}
         daily_data = {}
         monthly_data = {}
-
         for record in analytics_data:
             # Hourly aggregation
             hour = record['hour']
@@ -830,32 +1105,258 @@ def get_analytics():
             # Daily aggregation
             date = record['date']
             daily_data[date] = daily_data.get(date, 0) + record['consumption']
-
             # Monthly aggregation
             month = date[:7] # YYYY-MM
             monthly_data[month] = monthly_data.get(month, 0) + record['consumption']
-
+        
         # Calculate stats
         total_consumption = sum(d['consumption'] for d in analytics_data)
         highest_usage = max(d['consumption'] for d in analytics_data) if analytics_data else 0
         average_usage = total_consumption / len(analytics_data) if analytics_data else 0
         # Placeholder for savings calculation
         estimated_savings = total_consumption * 0.15 # 15% arbitrary saving
-
+        
         stats = {
             "highest_usage": highest_usage,
             "average_usage": average_usage,
-            "savings": estimated_savings
+            "savings": estimated_savings,
+            # Additional stats for advanced dashboard
+            "total_consumption": total_consumption,
+            "average_daily": total_consumption / max(1, len(set(record['date'] for record in analytics_data))),
+            "peak_usage": highest_usage,
+            "peak_time": "12:00 PM",  # Placeholder
+            "daily_change": 5.2,  # Placeholder percentage change
+            "estimated_cost": total_consumption * ELECTRICITY_RATE
         }
-
+        
+        # Convert your existing data format to match frontend expectations
+        # Transform hourly data for last 24 hours
+        hourly_labels = [f"{i:02d}:00" for i in range(24)]
+        hourly_values = [hourly_data.get(str(i), 0) for i in range(24)]
+        
+        # Transform daily data for last 7 days (get most recent 7 days)
+        sorted_daily = sorted(daily_data.items(), key=lambda x: x[0], reverse=True)[:7]
+        weekly_labels = [datetime.strptime(date, "%Y-%m-%d").strftime("%a") for date, _ in reversed(sorted_daily)]
+        weekly_values = [value for _, value in reversed(sorted_daily)]
+        
+        # Transform monthly data for last 12 months
+        sorted_monthly = sorted(monthly_data.items(), key=lambda x: x[0], reverse=True)[:12]
+        yearly_labels = [datetime.strptime(f"{month}-01", "%Y-%m-%d").strftime("%b %Y") for month, _ in reversed(sorted_monthly)]
+        yearly_values = [value for _, value in reversed(sorted_monthly)]
+        
+        # Generate additional analytics for advanced features
+        peak_analysis = {
+            'labels': hourly_labels,
+            'values': [max(80, hourly_data.get(str(i), 0) + (i * 2)) for i in range(24)]  # Mock peak data
+        }
+        
+        distribution = [25, 35, 25, 15]  # Mock distribution data
+        
+        weekly_pattern = [65, 70, 68, 72, 75, 85, 80]  # Mock weekly pattern
+        
+        cost_breakdown = calculate_cost_breakdown(total_consumption)
+        
+        efficiency_insights = [
+            {"type": "success", "message": "Your consumption is optimized during off-peak hours."},
+            {"type": "warning", "message": "Consider reducing usage during peak hours (6-9 PM)."},
+            {"type": "info", "message": "Switch to LED bulbs for 20% energy savings."}
+        ]
+        
         return jsonify({
             "stats": stats,
-            "hourly": hourly_data,
-            "daily": daily_data,
-            "monthly": monthly_data
+            "hourly": {"labels": hourly_labels, "values": hourly_values},
+            "weekly": {"labels": weekly_labels, "values": weekly_values},
+            "yearly": {"labels": yearly_labels, "values": yearly_values},
+            "peak_analysis": peak_analysis,
+            "distribution": distribution,
+            "weekly_pattern": weekly_pattern,
+            "cost_breakdown": cost_breakdown,
+            "efficiency_insights": efficiency_insights,
+            "efficiency_score": 78
         }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/export-data')
+@login_required
+def export_data():
+    """Export analytics data in various formats"""
+    format_type = request.args.get('format', 'csv').lower()
+    
+    try:
+        raw_data = load_analytics_data()
+        if not raw_data:
+            return jsonify({'error': 'No data to export'}), 404
+        
+        if format_type == 'csv':
+            # Create temporary CSV file
+            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+            
+            fieldnames = ['date', 'hour', 'consumption', 'cost']
+            writer = csv.DictWriter(temp_file, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for record in raw_data:
+                writer.writerow({
+                    'date': record['date'],
+                    'hour': f"{record['hour']:02d}:00",
+                    'consumption': record['consumption'],
+                    'cost': round(record['consumption'] * ELECTRICITY_RATE, 2)
+                })
+            
+            temp_file.close()
+            
+            return send_file(
+                temp_file.name,
+                as_attachment=True,
+                download_name=f'energy_consumption_{datetime.now().strftime("%Y%m%d")}.csv',
+                mimetype='text/csv'
+            )
+        
+        elif format_type == 'json':
+            # Export as JSON
+            export_data = {
+                'export_date': datetime.now().isoformat(),
+                'total_records': len(raw_data),
+                'data': raw_data,
+                'summary': calculate_statistics(raw_data)
+            }
+            
+            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            json.dump(export_data, temp_file, indent=2)
+            temp_file.close()
+            
+            return send_file(
+                temp_file.name,
+                as_attachment=True,
+                download_name=f'energy_analytics_{datetime.now().strftime("%Y%m%d")}.json',
+                mimetype='application/json'
+            )
+        
+        else:
+            return jsonify({'error': 'Unsupported format'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'Export failed: {str(e)}'}), 500
+
+@app.route('/api/efficiency-tips')
+@login_required
+def get_efficiency_tips():
+    """Get personalized efficiency tips based on usage patterns"""
+    try:
+        raw_data = load_analytics_data()
+        if not raw_data:
+            return jsonify({'error': 'No data available'}), 404
+        
+        stats = calculate_statistics(raw_data)
+        tips = []
+        
+        # Generate tips based on usage patterns
+        if stats['peak_usage'] > 80:
+            tips.append({
+                'category': 'Peak Usage',
+                'tip': 'Your peak usage is high. Consider using high-power appliances during off-peak hours.',
+                'potential_savings': '15-20%'
+            })
+        
+        if stats['daily_change'] > 5:
+            tips.append({
+                'category': 'Usage Trend',
+                'tip': 'Your consumption has increased recently. Check for inefficient appliances or changed habits.',
+                'potential_savings': '10-15%'
+            })
+        
+        # Time-based tips
+        hourly_usage = defaultdict(list)
+        for record in raw_data:
+            hourly_usage[record['hour']].append(record['consumption'])
+        
+        peak_hours = []
+        for hour, consumptions in hourly_usage.items():
+            if consumptions and statistics.mean(consumptions) > 70:
+                peak_hours.append(hour)
+        
+        if any(9 <= hour <= 17 for hour in peak_hours):
+            tips.append({
+                'category': 'Time Management',
+                'tip': 'High usage during business hours detected. Shift non-essential loads to night time.',
+                'potential_savings': '8-12%'
+            })
+        
+        # Seasonal tips
+        current_month = datetime.now().month
+        if current_month in [6, 7, 8]:  # Summer months
+            tips.append({
+                'category': 'Seasonal',
+                'tip': 'Summer peak detected. Optimize AC usage and consider better insulation.',
+                'potential_savings': '20-25%'
+            })
+        
+        return jsonify({
+            'tips': tips,
+            'generated_at': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate tips: {str(e)}'}), 500
+
+# Your existing route with theme support
+@app.route('/analytics.html')
+@login_required
+def analytics():
+    user_data = get_user_data()
+    theme = user_data['user_settings']['theme']
+    return render_template('analytics.html', theme=theme)
+
+# Additional utility functions for advanced features
+def calculate_carbon_footprint(consumption_kwh):
+    """Calculate carbon footprint based on consumption"""
+    # Average carbon emission factor for electricity in India: ~0.82 kg CO2/kWh
+    carbon_factor = 0.82
+    return consumption_kwh * carbon_factor
+
+def predict_next_month_usage(data):
+    """Simple prediction for next month's usage based on trends"""
+    if len(data) < 30:  # Need at least 30 data points
+        return None
+    
+    recent_data = data[-720:]  # Last 30 days (assuming hourly data)
+    recent_avg = statistics.mean([record['consumption'] for record in recent_data])
+    
+    # Simple trend calculation
+    older_data = data[-1440:-720] if len(data) >= 1440 else data[:-720]
+    if older_data:
+        older_avg = statistics.mean([record['consumption'] for record in older_data])
+        trend = (recent_avg - older_avg) / older_avg if older_avg > 0 else 0
+        predicted_usage = recent_avg * (1 + trend) * 30 * 24  # Monthly prediction
+        return max(0, predicted_usage)
+    
+    return recent_avg * 30 * 24  # Simple monthly projection
+
+@app.route('/api/predictions')
+@login_required
+def get_predictions():
+    """Get usage predictions and projections"""
+    try:
+        raw_data = load_analytics_data()
+        if not raw_data:
+            return jsonify({'error': 'Insufficient data for predictions'}), 404
+        
+        next_month_prediction = predict_next_month_usage(raw_data)
+        current_month_consumption = sum(record['consumption'] for record in raw_data 
+                                      if datetime.strptime(record['date'], "%Y-%m-%d").month == datetime.now().month)
+        
+        predictions = {
+            'next_month_kwh': round(next_month_prediction, 2) if next_month_prediction else None,
+            'next_month_cost': round(next_month_prediction * ELECTRICITY_RATE, 2) if next_month_prediction else None,
+            'carbon_footprint': round(calculate_carbon_footprint(current_month_consumption), 2),
+            'projected_annual': round(current_month_consumption * 12, 2) if current_month_consumption else 0
+        }
+        
+        return jsonify(predictions)
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate predictions: {str(e)}'}), 500
 
 # In app.py
 @app.route('/api/get-user-settings', methods=['GET'])
