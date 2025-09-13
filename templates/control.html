@@ -745,22 +745,19 @@
         
     
     const toggleMonitoring = async () => {
+        const monitoringBtn = document.getElementById('start-monitoring-btn');
+    
+        // Logic to STOP monitoring
         if (isMonitoring) {
-            // Stop monitoring
             isMonitoring = false;
+            if (monitoringIntervalId) clearTimeout(monitoringIntervalId);
+            if (monitoringStream) monitoringStream.getTracks().forEach(track => track.stop());
+            monitoringStream = null;
+            
             monitoringCard.classList.add('hidden');
+            monitoringCard.classList.remove('monitoring-active');
             monitoringBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Monitoring';
             showNotification('AI monitoring stopped.', 'on');
-            
-            if (monitoringIntervalId) {
-                clearTimeout(monitoringIntervalId);
-                monitoringIntervalId = null;
-            }
-            
-            if (monitoringStream) {
-                monitoringStream.getTracks().forEach(track => track.stop());
-                monitoringStream = null;
-            }
             
             if(currentRoomId) {
                 await fetch('/api/update-room-settings', {
@@ -769,20 +766,23 @@
                     body: JSON.stringify({ room_id: currentRoomId, ai_control: false })
                 });
             }
-        } else {
-            // Start monitoring
+        } 
+        // Logic to START monitoring
+        else {
             try {
-                // Check model availability with both possible checks
-                if (!model && !modelLoaded) {
+                // CRUCIAL FIX: Explicitly set the mode to per-room to avoid conflicts.
+                isGlobalMonitoringActive = false; 
+                
+                if (!model) {
                     await loadModel();
-                    if (!model && !modelLoaded) {
+                    if (!model) {
                         showNotification('AI model failed to load.', 'off');
                         return;
                     }
                 }
-    
-                // Get user settings for interval
-                let intervalInSeconds = 5; // default
+                
+                // Fetch user settings for the monitoring interval
+                let intervalInSeconds = 5; 
                 try {
                     const userSettingsResponse = await fetch('/api/get-user-settings');
                     const userSettings = await userSettingsResponse.json();
@@ -790,13 +790,9 @@
                 } catch (settingsError) {
                     console.warn('Failed to load user settings, using default interval:', settingsError);
                 }
-                
-                // Set interval with both variable names for compatibility
-                const intervalMs = intervalInSeconds * 1000;
-                aiControlInterval = intervalMs;
-                monitoringInterval = intervalMs;
+                aiControlInterval = intervalInSeconds * 1000;
     
-                // Get webcam stream
+                // Get the camera stream
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: {
                         width: { ideal: 1280 },
@@ -805,41 +801,22 @@
                 });
                 monitoringStream = stream;
                 
-                // Create or get video element (support both naming conventions)
-                let videoElement = monitoringVideo || monitoringVideoElement;
-                
-                if (!videoElement) {
-                    videoElement = document.createElement('video');
-                    videoElement.style.display = 'none';
-                    document.body.appendChild(videoElement);
-                    
-                    // Assign to both possible variable names for compatibility
-                    if (typeof monitoringVideo !== 'undefined' || !monitoringVideoElement) {
-                        monitoringVideo = videoElement;
-                    } 
-                    if (typeof monitoringVideoElement !== 'undefined' || !monitoringVideo) {
-                        monitoringVideoElement = videoElement;
-                    }
-                }
-                
-                videoElement.srcObject = monitoringStream;
-                
-                // Wait for video to be ready
-                await new Promise((resolve, reject) => {
-                    videoElement.onloadedmetadata = resolve;
-                    videoElement.onerror = reject;
-                    setTimeout(() => reject(new Error('Video load timeout')), 5000);
+                // Attach stream to the hidden video element and wait for it to be ready
+                monitoringVideoElement.srcObject = stream;
+                await new Promise((resolve) => {
+                    monitoringVideoElement.onloadedmetadata = resolve;
                 });
                 
-                await videoElement.play();
+                await monitoringVideoElement.play();
                 
-                // Update UI
+                // Update UI and state
                 isMonitoring = true;
                 monitoringCard.classList.remove('hidden');
+                monitoringCard.classList.add('monitoring-active');
                 monitoringBtn.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Monitoring';
                 showNotification('AI monitoring started.', 'on');
                 
-                // Update room settings
+                // Notify backend that AI control is active for this room
                 if(currentRoomId) {
                     await fetch('/api/update-room-settings', {
                         method: 'POST',
@@ -847,33 +824,17 @@
                         body: JSON.stringify({ room_id: currentRoomId, ai_control: true })
                     });
                 }
-               
-                // Start detection with the configured interval
-                monitoringIntervalId = setTimeout(detectHumans, intervalMs);
+                
+                // Start the detection loop
+                detectHumans();
                 
             } catch (err) {
                 console.error("Error accessing webcam for monitoring:", err);
-                
-                // Enhanced error messages
                 let errorMessage = 'Failed to access webcam for monitoring.';
-                if (err.name === 'NotAllowedError') {
-                    errorMessage = 'Camera permission denied. Please allow camera access for monitoring.';
-                } else if (err.name === 'NotFoundError') {
-                    errorMessage = 'No camera found for monitoring.';
-                } else if (err.name === 'NotReadableError') {
-                    errorMessage = 'Camera is in use by another application.';
-                } else if (err.message === 'Video load timeout') {
-                    errorMessage = 'Camera took too long to initialize.';
-                }
+                if (err.name === 'NotAllowedError') errorMessage = 'Camera permission denied.';
+                else if (err.name === 'NotFoundError') errorMessage = 'No camera found.';
                 
                 showNotification(errorMessage, 'off');
-                
-                // Cleanup any partial streams
-                if (monitoringStream) {
-                    monitoringStream.getTracks().forEach(track => track.stop());
-                    monitoringStream = null;
-                }
-                return;
             }
         }
     };
