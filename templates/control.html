@@ -99,25 +99,24 @@
     #ai-monitoring-card {
         max-width: 500px;
     }
+
+    @keyframes pulse-glow {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); /* Green glow */
+        }
+        50% {
+            box-shadow: 0 0 10px 5px rgba(22, 163, 74, 0);
+        }
+    }
     .monitoring-active-btn {
         animation: pulse-glow 2s infinite;
+        border-color: #16a34a; /* Green border */
     }
-
-@keyframes pulse-glow {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); /* Green glow */
-    }
-    50% {
-        box-shadow: 0 0 10px 5px rgba(22, 163, 74, 0);
-    }
-}
-    
+        
 </style>
 <div class="container mx-auto">
     <div class="text-center mb-8">
         <h1 class="text-4xl font-extrabold mb-2 text-primary-accent">Relay Control Panel</h1>
-        
-        <p id="master-ai-status" class="text-lg font-bold text-gray-500 dark:text-gray-400 transition-colors duration-300">AI Disabled</p>
         
         <p class="text-gray-700 dark:text-gray-300">Manage your rooms and appliances.</p>
     </div>
@@ -817,6 +816,7 @@
             monitoringStream = null;
             
             button.innerHTML = '<i class="fas fa-eye mr-2"></i>Start Global Monitoring';
+            button.classList.remove('monitoring-active-btn');
             document.getElementById('global-monitoring-card').classList.add('hidden');
             showNotification('Global AI monitoring stopped.', 'on');
             updateMasterAIStatus();
@@ -863,6 +863,7 @@
             isGlobalMonitoringActive = true;
             isMonitoring = true; // Set the general flag
             button.innerHTML = '<i class="fas fa-video-slash mr-2"></i>Stop Global Monitoring';
+            button.classList.add('monitoring-active-btn');
             document.getElementById('global-monitoring-card').classList.remove('hidden');
             showNotification('Global AI monitoring started.', 'on');
             updateMasterAIStatus();
@@ -1214,6 +1215,7 @@
             document.getElementById('rooms-view').classList.remove('hidden');
             document.getElementById('appliances-view').classList.add('hidden');
             
+            // Global monitoring button state management
             if (isGlobalMonitoring) {
                 const globalMonitoringBtn = document.getElementById('global-start-monitoring-btn');
                 const globalMonitoringCard = document.getElementById('ai-monitoring-global-card');
@@ -1240,8 +1242,10 @@
                 roomCard.setAttribute('data-id', room.id);
                 roomCard.className = "bg-card text-card-foreground rounded-xl border p-6 shadow-sm transition-all relative";
                 
-                const aiControlStatus = room.ai_control ? 'Yes' : 'No';
-                const aiStatusColor = room.ai_control ? 'text-green-500' : 'text-red-500';
+                // MODIFICATION: Check live monitoring status from activeMonitors map
+                const isCurrentlyMonitored = activeMonitors.has(room.id);
+                const aiControlText = isCurrentlyMonitored ? 'AI Enabled' : 'AI Disabled';
+                const aiStatusColor = isCurrentlyMonitored ? 'text-green-500' : 'text-gray-500';
                 
                 roomCard.innerHTML = `
                     <div class="flex items-center justify-between mb-2">
@@ -1253,11 +1257,12 @@
                         </div>
                     </div>
                     <p class="text-gray-500">${room.appliances.length} Appliances</p>
-                    <p class="text-sm mt-2">AI Control: <span class="font-semibold ${aiStatusColor}">${aiControlStatus}</span></p>
+                    <p class="text-sm mt-2"><span class="font-semibold ${aiStatusColor}">${aiControlText}</span></p>
                 `;
                 container.appendChild(roomCard);
             });
             
+            // Initialize or reinitialize sortable functionality for drag-and-drop reordering
             if (roomSortable) {
                 roomSortable.destroy();
             }
@@ -1276,6 +1281,7 @@
         }
     };
 
+    
     const updateTimerDisplay = (card, appliance) => {
         const timerElement = card.querySelector('.timer-display');
         const cancelButton = card.querySelector('.cancel-timer-btn');
