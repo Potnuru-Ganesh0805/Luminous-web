@@ -3,110 +3,281 @@
 {% block title %}Analytics{% endblock %}
 
 {% block content %}
-<div class="container mx-auto">
+<div class="container mx-auto px-4">
     <div class="text-center mb-8">
         <h1 class="text-4xl font-extrabold mb-2 text-primary-accent">Analytics Dashboard</h1>
-        <p class="text-gray-700 dark:text-gray-300">Track your energy consumption and savings.</p>
+        <p class="text-gray-700 dark:text-gray-300">Advanced energy consumption analysis and insights.</p>
     </div>
 
-    <!-- Analytics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12" id="analytics-stats">
+    <!-- Key Metrics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="analytics-stats">
         <!-- Stats cards will be dynamically inserted here -->
     </div>
 
-    <!-- Chart and Controls -->
-    <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold">Power Consumption</h2>
-            <div class="flex space-x-2">
-                <button id="hourly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors active">Hourly</button>
-                <button id="daily-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors">Daily</button>
-                <button id="monthly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors">Monthly</button>
+    <!-- Main Chart and Controls -->
+    <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col mb-8">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold mb-4 md:mb-0">Power Consumption Analysis</h2>
+            <div class="flex flex-wrap gap-2">
+                <button id="hourly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors active">Last 24 Hours</button>
+                <button id="weekly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors">Last 7 Days</button>
+                <button id="yearly-btn" class="chart-btn px-4 py-2 rounded-md font-medium text-sm transition-colors">Last 12 Months</button>
             </div>
         </div>
-        <div class="w-full">
+        <div class="w-full h-96">
             <canvas id="consumption-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Advanced Analytics Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Peak Usage Analysis -->
+        <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
+            <h3 class="text-xl font-bold mb-4">Peak Usage Analysis</h3>
+            <div class="h-64">
+                <canvas id="peak-analysis-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Usage Distribution -->
+        <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
+            <h3 class="text-xl font-bold mb-4">Usage Distribution</h3>
+            <div class="h-64">
+                <canvas id="distribution-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weekly Pattern and Cost Analysis -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Weekly Pattern -->
+        <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
+            <h3 class="text-xl font-bold mb-4">Weekly Usage Pattern</h3>
+            <div class="h-64">
+                <canvas id="weekly-pattern-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Cost Analysis -->
+        <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
+            <h3 class="text-xl font-bold mb-4">Cost Analysis</h3>
+            <div id="cost-breakdown" class="space-y-4">
+                <!-- Cost breakdown will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Efficiency Metrics -->
+    <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col mb-8">
+        <h3 class="text-xl font-bold mb-4">Efficiency Metrics & Recommendations</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="text-center">
+                <h4 class="font-semibold text-gray-600 dark:text-gray-300 mb-2">Efficiency Score</h4>
+                <div class="relative inline-flex items-center justify-center w-24 h-24">
+                    <svg class="w-24 h-24 transform -rotate-90">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" class="text-gray-200 dark:text-gray-700" transform="translate(36, 36)"></circle>
+                        <circle id="efficiency-circle" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" class="text-primary-accent" stroke-dasharray="62.83" stroke-dashoffset="0" transform="translate(36, 36)"></circle>
+                    </svg>
+                    <span id="efficiency-score" class="absolute text-lg font-bold">85%</span>
+                </div>
+            </div>
+            <div id="efficiency-insights" class="col-span-2 space-y-2">
+                <!-- Efficiency insights will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Export -->
+    <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col">
+        <h3 class="text-xl font-bold mb-4">Data Export & Reports</h3>
+        <div class="flex flex-wrap gap-4">
+            <button id="export-csv" class="px-4 py-2 bg-primary-accent text-white rounded-md hover:bg-opacity-90 transition-colors">Export CSV</button>
+            <button id="export-pdf" class="px-4 py-2 bg-secondary-accent text-white rounded-md hover:bg-opacity-90 transition-colors">Generate PDF Report</button>
+            <button id="schedule-report" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-opacity-90 transition-colors">Schedule Weekly Report</button>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script>
     const API_BASE_URL = window.location.origin;
-    let consumptionChart;
+    let charts = {};
+    let analyticsData = {};
 
-    const createChart = (labels, barData, lineData, label, unit) => {
+    // Utility function to get CSS variables
+    const getCSSVar = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+
+    // Chart color configuration
+    const getChartColors = () => ({
+        primary: getCSSVar('--primary-accent-light'),
+        secondary: getCSSVar('--secondary-accent-light'),
+        accent: getCSSVar('--accent-light'),
+        border: getCSSVar('--border-color-light'),
+        text: getCSSVar('--text-muted-foreground-light'),
+        background: getCSSVar('--card-light')
+    });
+
+    const createMainChart = (labels, data, type, unit) => {
         const ctx = document.getElementById('consumption-chart').getContext('2d');
-        if (consumptionChart) {
-            consumptionChart.destroy();
-        }
+        if (charts.main) charts.main.destroy();
         
-        const chartColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-light').trim();
-        const chartColorDark = getComputedStyle(document.documentElement).getPropertyValue('--secondary-accent-dark').trim();
-        const borderColor = document.documentElement.classList.contains('dark') ? chartColorDark : chartColor;
-
-        consumptionChart = new Chart(ctx, {
+        const colors = getChartColors();
+        
+        charts.main = new Chart(ctx, {
+            type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Consumption',
-                    data: barData,
-                    borderColor: borderColor,
-                    backgroundColor: borderColor,
-                    type: 'bar',
-                    order: 2,
-                    borderRadius: 5,
-                }, {
-                    label: 'Trend',
-                    data: lineData,
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-accent-light').trim(),
-                    backgroundColor: 'transparent',
-                    type: 'line',
-                    order: 1,
+                    label: `Consumption (${unit})`,
+                    data: data,
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primary + '20',
+                    borderWidth: 3,
+                    fill: true,
                     tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false
-                    }
+                    legend: { display: false }
                 },
                 scales: {
                     x: {
-                        grid: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color-light').trim(),
-                        },
-                        ticks: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted-foreground-light').trim(),
-                        }
+                        grid: { color: colors.border },
+                        ticks: { color: colors.text }
                     },
                     y: {
                         beginAtZero: true,
-                        grid: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--border-color-light').trim(),
-                        },
+                        grid: { color: colors.border },
                         ticks: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted-foreground-light').trim(),
-                            callback: function(value) {
-                                return value + ` ${unit}`;
-                            }
+                            color: colors.text,
+                            callback: value => `${value} ${unit}`
                         }
                     }
                 }
+            }
+        });
+    };
+
+    const createPeakAnalysisChart = (data) => {
+        const ctx = document.getElementById('peak-analysis-chart').getContext('2d');
+        if (charts.peak) charts.peak.destroy();
+        
+        const colors = getChartColors();
+        
+        charts.peak = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Peak Usage (kWh)',
+                    data: data.values,
+                    backgroundColor: colors.secondary,
+                    borderColor: colors.secondary,
+                    borderWidth: 1
+                }]
             },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: colors.border }, ticks: { color: colors.text } },
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: colors.border },
+                        ticks: { color: colors.text, callback: value => `${value} kWh` }
+                    }
+                }
+            }
+        });
+    };
+
+    const createDistributionChart = (data) => {
+        const ctx = document.getElementById('distribution-chart').getContext('2d');
+        if (charts.distribution) charts.distribution.destroy();
+        
+        const colors = getChartColors();
+        
+        charts.distribution = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Low Usage', 'Medium Usage', 'High Usage', 'Peak Usage'],
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        colors.primary + '80',
+                        colors.secondary + '80',
+                        colors.accent + '80',
+                        '#ff6b6b80'
+                    ],
+                    borderColor: [colors.primary, colors.secondary, colors.accent, '#ff6b6b'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: colors.text }
+                    }
+                }
+            }
+        });
+    };
+
+    const createWeeklyPatternChart = (data) => {
+        const ctx = document.getElementById('weekly-pattern-chart').getContext('2d');
+        if (charts.weekly) charts.weekly.destroy();
+        
+        const colors = getChartColors();
+        
+        charts.weekly = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                datasets: [{
+                    label: 'Average Daily Usage',
+                    data: data,
+                    borderColor: colors.accent,
+                    backgroundColor: colors.accent + '40',
+                    pointBackgroundColor: colors.accent,
+                    pointBorderColor: colors.accent,
+                    pointHoverBackgroundColor: colors.accent,
+                    pointHoverBorderColor: colors.accent
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        grid: { color: colors.border },
+                        pointLabels: { color: colors.text },
+                        ticks: { color: colors.text }
+                    }
+                }
+            }
         });
     };
 
     const fetchAnalyticsData = async () => {
         try {
             const response = await fetch('/api/get-analytics');
-            if (!response.ok) throw new Error('Failed to fetch analytics data.');
+            if (!response.ok) throw new Error('Failed to fetch analytics data');
             return await response.json();
         } catch (error) {
             console.error("Error fetching analytics data:", error);
-            showNotification('Failed to load analytics data.', 'off');
+            showNotification?.('Failed to load analytics data.', 'error');
             return null;
         }
     };
@@ -115,56 +286,167 @@
         const statsContainer = document.getElementById('analytics-stats');
         statsContainer.innerHTML = `
             <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
-                <h3 class="text-lg font-semibold text-text-card-foreground">Highest Usage</h3>
-                <p class="text-3xl font-bold text-primary-accent">${stats.highest_usage.toFixed(2)} kWh</p>
+                <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 text-center">Total Consumption</h3>
+                <p class="text-2xl font-bold text-primary-accent">${stats.total_consumption.toFixed(2)} kWh</p>
+                <span class="text-xs text-gray-500">This month</span>
             </div>
             <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
-                <h3 class="text-lg font-semibold text-text-card-foreground">Average Usage</h3>
-                <p class="text-3xl font-bold text-primary-accent">${stats.average_usage.toFixed(2)} kWh</p>
+                <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 text-center">Average Daily</h3>
+                <p class="text-2xl font-bold text-secondary-accent">${stats.average_daily.toFixed(2)} kWh</p>
+                <span class="text-xs ${stats.daily_change >= 0 ? 'text-red-500' : 'text-green-500'}">
+                    ${stats.daily_change >= 0 ? '↑' : '↓'} ${Math.abs(stats.daily_change).toFixed(1)}% vs last month
+                </span>
             </div>
             <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
-                <h3 class="text-lg font-semibold text-text-card-foreground">Estimated Savings</h3>
-                <p class="text-3xl font-bold text-primary-accent">${stats.savings.toFixed(2)} kWh</p>
+                <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 text-center">Peak Usage</h3>
+                <p class="text-2xl font-bold text-accent">${stats.peak_usage.toFixed(2)} kWh</p>
+                <span class="text-xs text-gray-500">${stats.peak_time}</span>
+            </div>
+            <div data-slot="card" class="bg-card text-card-foreground gap-6 rounded-xl border p-6 shadow-sm transition-all flex flex-col items-center">
+                <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 text-center">Estimated Cost</h3>
+                <p class="text-2xl font-bold text-primary-accent">₹${stats.estimated_cost.toFixed(2)}</p>
+                <span class="text-xs text-gray-500">@ ₹6.50/kWh</span>
             </div>
         `;
     };
 
+    const updateCostBreakdown = (costData) => {
+        const costContainer = document.getElementById('cost-breakdown');
+        costContainer.innerHTML = `
+            <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-sm">Base Charges</span>
+                <span class="font-semibold">₹${costData.base_charges.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-sm">Energy Charges</span>
+                <span class="font-semibold">₹${costData.energy_charges.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-sm">Tax & Surcharge</span>
+                <span class="font-semibold">₹${costData.tax_surcharge.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between items-center py-2 font-bold text-lg">
+                <span>Total</span>
+                <span class="text-primary-accent">₹${costData.total.toFixed(2)}</span>
+            </div>
+        `;
+    };
+
+    const updateEfficiencyInsights = (insights) => {
+        const insightsContainer = document.getElementById('efficiency-insights');
+        let insightsHTML = '';
+        
+        insights.forEach((insight, index) => {
+            const iconColor = insight.type === 'warning' ? 'text-yellow-500' : 
+                            insight.type === 'success' ? 'text-green-500' : 'text-blue-500';
+            insightsHTML += `
+                <div class="flex items-start space-x-2">
+                    <span class="${iconColor} text-sm">●</span>
+                    <span class="text-sm">${insight.message}</span>
+                </div>
+            `;
+        });
+        
+        insightsContainer.innerHTML = insightsHTML;
+    };
+
     const setupChartControls = (data) => {
-        const hourlyBtn = document.getElementById('hourly-btn');
-        const dailyBtn = document.getElementById('daily-btn');
-        const monthlyBtn = document.getElementById('monthly-btn');
-        const buttons = [hourlyBtn, dailyBtn, monthlyBtn];
+        const buttons = ['hourly-btn', 'weekly-btn', 'yearly-btn'];
+        const buttonElements = buttons.map(id => document.getElementById(id));
 
         const setActive = (activeBtn) => {
-            buttons.forEach(btn => btn.classList.remove('active'));
+            buttonElements.forEach(btn => btn.classList.remove('active'));
             activeBtn.classList.add('active');
         };
 
-        hourlyBtn.addEventListener('click', () => {
-            setActive(hourlyBtn);
-            createChart(Object.keys(data.hourly), Object.values(data.hourly), Object.values(data.hourly), 'Hourly Consumption', 'kWh');
+        document.getElementById('hourly-btn').addEventListener('click', () => {
+            setActive(document.getElementById('hourly-btn'));
+            createMainChart(data.hourly.labels, data.hourly.values, 'hourly', 'kWh');
         });
 
-        dailyBtn.addEventListener('click', () => {
-            setActive(dailyBtn);
-            createChart(Object.keys(data.daily), Object.values(data.daily), Object.values(data.daily), 'Daily Consumption', 'kWh');
+        document.getElementById('weekly-btn').addEventListener('click', () => {
+            setActive(document.getElementById('weekly-btn'));
+            createMainChart(data.weekly.labels, data.weekly.values, 'weekly', 'kWh');
         });
 
-        monthlyBtn.addEventListener('click', () => {
-            setActive(monthlyBtn);
-            createChart(Object.keys(data.monthly), Object.values(data.monthly), Object.values(data.monthly), 'Monthly Consumption', 'kWh');
+        document.getElementById('yearly-btn').addEventListener('click', () => {
+            setActive(document.getElementById('yearly-btn'));
+            createMainChart(data.yearly.labels, data.yearly.values, 'yearly', 'kWh');
         });
 
-        // Set initial chart
-        createChart(Object.keys(data.hourly), Object.values(data.hourly), Object.values(data.hourly), 'Hourly Consumption', 'kWh');
+        // Initialize with hourly view
+        createMainChart(data.hourly.labels, data.hourly.values, 'hourly', 'kWh');
+    };
+
+    const setupExportHandlers = () => {
+        document.getElementById('export-csv').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/export-data?format=csv');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'energy-consumption-data.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showNotification?.('Data exported successfully!', 'success');
+            } catch (error) {
+                showNotification?.('Export failed. Please try again.', 'error');
+            }
+        });
+
+        document.getElementById('export-pdf').addEventListener('click', async () => {
+            showNotification?.('Generating PDF report...', 'info');
+            // PDF generation logic would go here
+        });
+
+        document.getElementById('schedule-report').addEventListener('click', () => {
+            showNotification?.('Report scheduling feature coming soon!', 'info');
+        });
     };
 
     window.onload = async () => {
         const data = await fetchAnalyticsData();
         if (data) {
+            analyticsData = data;
             updateStatsCards(data.stats);
             setupChartControls(data);
+            
+            // Create additional charts
+            createPeakAnalysisChart(data.peak_analysis);
+            createDistributionChart(data.distribution);
+            createWeeklyPatternChart(data.weekly_pattern);
+            
+            // Update other components
+            updateCostBreakdown(data.cost_breakdown);
+            updateEfficiencyInsights(data.efficiency_insights);
+            
+            // Setup export handlers
+            setupExportHandlers();
         }
     };
+
+    // Add CSS for active button state
+    document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            .chart-btn {
+                background-color: var(--card-light);
+                color: var(--text-card-foreground-light);
+                border: 1px solid var(--border-color-light);
+            }
+            .chart-btn:hover {
+                background-color: var(--secondary-accent-light);
+                color: white;
+            }
+            .chart-btn.active {
+                background-color: var(--primary-accent-light);
+                color: white;
+            }
+        `;
+        document.head.appendChild(style);
+    });
 </script>
 {% endblock %}
