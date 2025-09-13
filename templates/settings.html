@@ -10,9 +10,13 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Profile Settings Card -->
         <div data-slot="card" class="bg-card text-card-foreground rounded-xl border p-8 shadow-sm transition-all">
-            <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Profile Information</h2>
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200">Profile Information</h2>
+            
+            <div class="flex justify-center mb-6">
+                <img id="profile-picture" src="https://via.placeholder.com/150" alt="Profile Picture" class="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-700">
+            </div>
+
             <form id="profile-settings-form" class="space-y-6">
                 <div>
                     <label for="profile-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
@@ -21,7 +25,11 @@
                 <div>
                     <label for="profile-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
                     <input type="email" id="profile-email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Notifications will be sent to this email address.</p>
+                    <p id="email-help-text" class="mt-1 text-xs text-gray-500 dark:text-gray-400">Email is managed by your login provider (Google/GitHub).</p>
+                </div>
+                <div id="github-profile-container" class="hidden">
+                     <label for="profile-github" class="block text-sm font-medium text-gray-700 dark:text-gray-300">GitHub Profile</label>
+                     <input type="text" id="profile-github" name="github_profile_url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 bg-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 cursor-not-allowed" disabled>
                 </div>
                 <div>
                     <label for="profile-mobile" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mobile Number</label>
@@ -33,12 +41,10 @@
             </form>
         </div>
 
-        <!-- Security and Preferences Card -->
         <div data-slot="card" class="bg-card text-card-foreground rounded-xl border p-8 shadow-sm transition-all space-y-6">
             <h2 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Security & Preferences</h2>
 
-            <!-- Change Password Form -->
-            <div>
+            <div id="change-password-container" class="hidden">
                 <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Change Password</h3>
                 <form id="change-password-form" class="space-y-4">
                     <div>
@@ -54,10 +60,23 @@
                     </div>
                 </form>
             </div>
+            
+            <div id="set-password-container" class="hidden">
+                <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Set a Password</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">You signed up using Google or GitHub. Create a password to enable signing in with your username as well.</p>
+                <form id="set-password-form" class="space-y-4">
+                    <div>
+                        <label for="set-new-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">New Password</label>
+                        <input type="password" id="set-new-password" name="new_password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" required>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors font-bold">Set Password</button>
+                    </div>
+                </form>
+            </div>
 
             <hr class="my-6 border-gray-200 dark:border-gray-700">
 
-            <!-- Other Preferences -->
             <div>
                 <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Application Preferences</h3>
                 <form id="app-preferences-form" class="space-y-4">
@@ -66,7 +85,6 @@
                         <input type="number" id="ai-control-interval" name="ai_control_interval" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" value="5">
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The time in seconds the AI will wait between detections.</p>
                     </div>
-
                     <div class="flex justify-end">
                         <button type="submit" class="px-4 py-2 bg-secondary-accent text-white rounded-lg hover:bg-opacity-80 transition-colors font-bold">Save Preferences</button>
                     </div>
@@ -77,29 +95,85 @@
 </div>
 
 <script>
+    // Utility function to show notifications (assumes this exists in your base template)
+    function showNotification(message, type) {
+        console.log(`${type.toUpperCase()}: ${message}`);
+        // Replace with your actual notification system
+    }
+
     const fetchUserSettings = async () => {
         try {
             const response = await fetch('/api/get-user-settings');
             if (!response.ok) throw new Error('Failed to fetch user settings.');
             const settings = await response.json();
             
+            // Populate Profile Picture
+            document.getElementById('profile-picture').src = settings.picture || 'https://via.placeholder.com/150';
+
+            // Populate standard fields
             document.getElementById('profile-name').value = settings.name || '';
-            document.getElementById('profile-email').value = settings.email || '';
             document.getElementById('profile-mobile').value = settings.mobile || '';
             document.getElementById('ai-control-interval').value = settings.ai_control_interval || 5;
+
+            // Handle Email field - disable if OAuth user
+            const emailInput = document.getElementById('profile-email');
+            const emailHelpText = document.getElementById('email-help-text');
+            emailInput.value = settings.email || '';
+            
+            if (settings.is_oauth_user) {
+                emailInput.disabled = true;
+                emailInput.classList.remove('bg-gray-100', 'dark:bg-gray-700');
+                emailInput.classList.add('bg-gray-200', 'dark:bg-gray-800', 'cursor-not-allowed');
+                emailHelpText.textContent = 'Email is managed by your login provider (Google/GitHub).';
+            } else {
+                emailInput.disabled = false;
+                emailInput.classList.remove('bg-gray-200', 'dark:bg-gray-800', 'cursor-not-allowed');
+                emailInput.classList.add('bg-gray-100', 'dark:bg-gray-700');
+                emailHelpText.textContent = 'Notifications will be sent to this email address.';
+            }
+
+            // Handle GitHub profile field
+            const githubContainer = document.getElementById('github-profile-container');
+            if (settings.github_profile_url) {
+                document.getElementById('profile-github').value = settings.github_profile_url;
+                githubContainer.classList.remove('hidden');
+            } else {
+                githubContainer.classList.add('hidden');
+            }
+            
+            // Show appropriate password form
+            const changePasswordContainer = document.getElementById('change-password-container');
+            const setPasswordContainer = document.getElementById('set-password-container');
+            
+            if (settings.has_password) {
+                changePasswordContainer.classList.remove('hidden');
+                setPasswordContainer.classList.add('hidden');
+            } else {
+                changePasswordContainer.classList.add('hidden');
+                setPasswordContainer.classList.remove('hidden');
+            }
+
         } catch (error) {
             console.error('Error loading settings:', error);
             showNotification('Failed to load settings.', 'off');
         }
     };
 
+    // Profile settings form submission
     document.getElementById('profile-settings-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Only send editable fields
         const newSettings = {
             name: document.getElementById('profile-name').value,
-            email: document.getElementById('profile-email').value,
             mobile: document.getElementById('profile-mobile').value,
         };
+
+        // Include email only if it's not an OAuth user
+        const emailInput = document.getElementById('profile-email');
+        if (!emailInput.disabled) {
+            newSettings.email = emailInput.value;
+        }
 
         try {
             const response = await fetch('/api/set-user-settings', {
@@ -119,6 +193,7 @@
         }
     });
 
+    // Change password form submission
     document.getElementById('change-password-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const oldPassword = document.getElementById('old-password').value;
@@ -143,6 +218,33 @@
         }
     });
 
+    // Set password form submission
+    document.getElementById('set-password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newPassword = document.getElementById('set-new-password').value;
+
+        try {
+            const response = await fetch('/api/set-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_password: newPassword })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showNotification('Password set successfully!', 'on');
+                document.getElementById('set-password-form').reset();
+                // Refresh settings to show change password form instead
+                fetchUserSettings();
+            } else {
+                showNotification(`Error: ${result.message}`, 'off');
+            }
+        } catch (error) {
+            console.error(error);
+            showNotification('Failed to set password.', 'off');
+        }
+    });
+
+    // Application preferences form submission
     document.getElementById('app-preferences-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const newInterval = document.getElementById('ai-control-interval').value;
@@ -168,6 +270,7 @@
         }
     });
 
+    // Load settings when page loads
     document.addEventListener('DOMContentLoaded', fetchUserSettings);
 </script>
 {% endblock %}
