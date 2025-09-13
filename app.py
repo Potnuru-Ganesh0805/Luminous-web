@@ -64,7 +64,8 @@ google = oauth.register(
     api_base_url='https://www.googleapis.com/oauth2/v1/',
     userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',  # This is the endpoint to get user info
     client_kwargs={'scope': 'openid email profile'},
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
+    # server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
+    jwks_uri='https://www.googleapis.com/oauth2/v3/certs'
 )
 
 github = oauth.register(
