@@ -380,6 +380,7 @@
     let aiControlInterval = 5000;
     let lastEmailTime = null;
     let isGlobalMonitoringActive = false;
+    const monitoringVideoElement = document.createElement('video');
     // ... keep other variables like webcamStream, allRoomsData, etc.
 
     const loadModel = async () => {
@@ -1320,29 +1321,53 @@
 
     document.getElementById('settings-room-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Find the submit button to provide user feedback
+        const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+    
+        // --- UX UPDATE: Disable button and show saving state ---
+        submitButton.disabled = true;
+        submitButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Saving...`;
+    
+        // Get form values
         const roomId = document.getElementById('edit-room-id').value;
         const newName = document.getElementById('edit-room-name').value;
         const aiControl = document.getElementById('ai-control-switch').dataset.state === 'checked';
+        
         try {
             const response = await fetch('/api/update-room-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, name: newName, ai_control: aiControl })
+                body: JSON.stringify({ 
+                    room_id: roomId, 
+                    name: newName, 
+                    ai_control: aiControl 
+                })
             });
-            const result = await response.json();
+    
+            // The response.ok check is the correct way to see if the request was successful (e.g., status 200)
             if (response.ok) {
                 showNotification('Room settings updated!', 'on');
                 document.getElementById('settings-room-modal').classList.add('hidden');
-                fetchRoomsAndAppliances();
+                fetchRoomsAndAppliances(); // Refresh the main view with new data
             } else {
+                // Handle errors reported by the server (e.g., status 400, 500)
+                const result = await response.json();
                 showNotification(`Error: ${result.message}`, 'off');
             }
+    
         } catch (error) {
-            console.error(error);
-            showNotification('Failed to save room settings.', 'off');
+            // Handle network errors (e.g., server is down, no internet connection)
+            console.error('Form submission failed:', error);
+            showNotification('Failed to save room settings. Check your connection.', 'off');
+        } finally {
+            // --- UX UPDATE: Re-enable button and restore original text ---
+            // This 'finally' block ensures the button is always re-enabled, even if an error occurs.
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
         }
     });
-
     // Universal Confirmation Modal Logic
     let currentAction = null;
     let currentData = null;
