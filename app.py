@@ -673,6 +673,7 @@ def logout():
     return redirect(url_for('signin'))
 
 @app.route('/')
+@login_required
 def home():
     user_data = get_user_data()
     theme = user_data['user_settings']['theme']
